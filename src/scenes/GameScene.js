@@ -421,7 +421,7 @@ export class GameScene extends Phaser.Scene {
 
   generateMountain(startY, pSide, color, isBg = false) {
     const direction = pSide === 'left' ? 1 : -1;
-    const landingWidth = 400; 
+    const landingWidth = 300; 
     const stepWidth = 30;
     const stepHeight = 30;
     const numSteps = isBg ? this.nextFloorSteps : this.currentFloorSteps;
