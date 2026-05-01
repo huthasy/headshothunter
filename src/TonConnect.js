@@ -79,17 +79,20 @@ class TonManager {
     }
 
     _createCommentPayload(text) {
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(text);
-        const prefix = new Uint8Array(4); 
-        const payload = new Uint8Array(prefix.length + bytes.length);
-        payload.set(prefix);
-        payload.set(bytes, prefix.length);
-        let binary = '';
-        for (let i = 0; i < payload.length; i++) {
-            binary += String.fromCharCode(payload[i]);
+        try {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(text);
+            const payload = new Uint8Array(4 + bytes.length);
+            // 4 bytes 0 at the beginning for text comment
+            payload.set([0, 0, 0, 0]);
+            payload.set(bytes, 4);
+            
+            // Convert to Base64 safely
+            return btoa(String.fromCharCode.apply(null, payload));
+        } catch (e) {
+            console.error('[TON] Payload error:', e);
+            return undefined;
         }
-        return btoa(binary);
     }
 
     disconnect() {
