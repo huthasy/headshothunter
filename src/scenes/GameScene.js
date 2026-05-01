@@ -564,14 +564,14 @@ export class GameScene extends Phaser.Scene {
     for (let i=0; i<numSteps; i++) {
         currentX += direction * stepWidth/2; currentY -= stepHeight;
         currentBatch.push(this.createPlat(currentX, currentY, stepWidth, color, isBg));
-        stepCoordinates.push({ x: currentX, y: currentY });
+        if (!isBg) stepCoordinates.push({ x: currentX, y: currentY });
         currentX += direction * stepWidth/2;
     }
     const finalELandingCenter = currentX + direction * (landingWidth/2);
     currentBatch.push(this.createPlat(finalELandingCenter, currentY, landingWidth, color, isBg));
     const nextSide = pSide === 'left' ? 'right' : 'left';
     const nextPlayerX = nextSide === 'left' ? this.scale.width * 0.15 : this.scale.width * 0.85;
-    stepCoordinates.push({ x: nextPlayerX, y: currentY });
+    if (!isBg) stepCoordinates.push({ x: nextPlayerX, y: currentY });
     currentBatch.push(this.createPlat(fixedPLandingCenter - direction * 800, startY, 1600, color, isBg));
     currentBatch.push(this.createPlat(finalELandingCenter + direction * 800, currentY, 1600, color, isBg));
     const enemyFinalX = finalELandingCenter - direction * (landingWidth/2 - 20); 
@@ -601,11 +601,8 @@ export class GameScene extends Phaser.Scene {
     const nextIsBoss = ((floor + 1) % 5 === 0);
     this.nextFloorSteps = nextIsBoss ? Phaser.Math.Between(6, 7) : Phaser.Math.Between(3, 7);
 
-    // Sinh cau thang hau canh cho tang tiep theo
     const nextSide = this.playerSide === 'left' ? 'right' : 'left';
-    const bgResult = this.generateMountain(eY, nextSide, 0x1B4F5E, true);
-    this.bgStepsCoordinates = bgResult.steps; // Luu lai de boss chay theo
-    
+    this.generateMountain(eY, nextSide, 0x1B4F5E, true);
     this.enemyY = eY;
     this.currentSteps = steps;
 
@@ -734,31 +731,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  showBlinkingText(msg, x, y, color, size, type = 'default') {
-    // Fixed vertical slots based on message type to prevent overlapping
-    let finalY = y;
-    if (type === 'headshot') finalY = y - 80;
-    else if (type === 'hit') finalY = y - 40;
-    else if (type === 'hp') finalY = y + 20;
-
-    const txt = this.add.text(x, finalY, msg, { 
-        fontFamily: 'Arial Black, Arial', 
-        fontSize: `${size}px`, 
-        color: color, 
-        stroke: '#000000',
-        strokeThickness: 2
-    }).setOrigin(0.5).setDepth(200).setScrollFactor(0);
-    
-    this.tweens.add({ 
-        targets: txt, 
-        y: finalY - 40, 
-        alpha: 0, 
-        duration: 1000, 
-        ease: 'Power1',
-        onComplete: () => txt.destroy() 
-    });
-  }
-
   hit(isHead) {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
@@ -767,28 +739,25 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
-    // Optimized for small mobile screens
-    const fontSize = this.scale.width < 500 ? 14 : 20;
-
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y, '#ff0000', fontSize + 2, 'headshot');
+        this.showBlinkingText('HEADSHOT!', e.x, e.y - 60, '#ff0000', 20, -30);
     } else {
-        this.showBlinkingText('HIT!', e.x, e.y, '#ffffff', fontSize, 'hit');
+        this.showBlinkingText('HIT!', e.x, e.y - 60, '#ffffff', 16, -10);
     }
 
     if (e.isBoss && !isDead) {
-        this.showBlinkingText(`BOSS HP: ${e.hp}/3`, e.x, e.y, '#ffcc00', fontSize, 'hp');
+        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 60, '#ffcc00', 18, 20);
     }
 
     const knockbackX = direction * 40;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
-        x: `+=${knockbackX}`, y: '-=20', angle: direction * 45, duration: 300, ease: 'Power2',
+        x: `+=${knockbackX}`, y: '-=15', angle: direction * 45, duration: 300, ease: 'Power2',
         onStart: () => { 
             if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
         },
         onComplete: () => {
-            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=20', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
+            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
         }
     });
 
@@ -799,17 +768,14 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.showBossWarning("BOSS RETREATING!");
             
-            // Animation Boss chay len - DUNG CAU THANG HAU CANH (TANG TREN)
+            // Animation Boss chay len voi hieu ung nghien nguoi
             const retreatTweens = [];
-            const stepsToFollow = this.bgStepsCoordinates || this.currentSteps;
-            
-            stepsToFollow.forEach((step, idx) => {
+            this.currentSteps.forEach((step, idx) => {
                 retreatTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, 
-                    y: step.y - (idx % 2 === 0 ? 10 : 0), 
-                    angle: idx % 2 === 0 ? 15 : -15, 
-                    duration: 80, ease: 'Linear'
+                    x: step.x, y: step.y,
+                    angle: idx % 2 === 0 ? 10 : -10, // Tilting effect
+                    duration: 60, ease: 'Linear'
                 });
             });
 
@@ -875,6 +841,26 @@ export class GameScene extends Phaser.Scene {
         targets: this.cameras.main,
         scrollY: targetScrollY, duration: 500, ease: 'Power2',
         onComplete: () => { this.spawnEnemy(); this.isTransitioning = false; }
+    });
+  }
+
+  showBlinkingText(msg, x, y, color, size, offsetY = 0) {
+    const txt = this.add.text(x, y + offsetY, msg, { 
+        fontFamily: 'Arial', 
+        fontSize: `${size}px`, 
+        color: color, 
+        fontWeight: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+    
+    this.tweens.add({ 
+        targets: txt, 
+        y: '-=60', 
+        alpha: 0, 
+        duration: 1000, 
+        ease: 'Power1',
+        onComplete: () => txt.destroy() 
     });
   }
 }
