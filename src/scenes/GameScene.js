@@ -429,7 +429,10 @@ export class GameScene extends Phaser.Scene {
     const currentBatch = [];
     const totalStepWidth = numSteps * stepWidth;
     const gap = totalStepWidth + 20; 
-    const fixedPLandingCenter = this.centerX - (gap/2 + landingWidth/2) * (direction);
+    // Dung ty le 0.15 de sat mep man hinh hon (thay vi 0.25)
+    const playerTargetX = direction === 1 ? this.scale.width * 0.15 : this.scale.width * 0.85;
+    const fixedPLandingCenter = playerTargetX;
+    
     currentBatch.push(this.createPlat(fixedPLandingCenter, startY, landingWidth, color, isBg));
     let currentX = fixedPLandingCenter + direction * (landingWidth/2);
     let currentY = startY;
@@ -442,7 +445,7 @@ export class GameScene extends Phaser.Scene {
     const finalELandingCenter = currentX + direction * (landingWidth/2);
     currentBatch.push(this.createPlat(finalELandingCenter, currentY, landingWidth, color, isBg));
     const nextSide = pSide === 'left' ? 'right' : 'left';
-    const nextPlayerX = nextSide === 'left' ? this.scale.width * 0.25 : this.scale.width * 0.75;
+    const nextPlayerX = nextSide === 'left' ? this.scale.width * 0.15 : this.scale.width * 0.85;
     if (!isBg) stepCoordinates.push({ x: nextPlayerX, y: currentY });
     currentBatch.push(this.createPlat(fixedPLandingCenter - direction * 800, startY, 1600, color, isBg));
     currentBatch.push(this.createPlat(finalELandingCenter + direction * 800, currentY, 1600, color, isBg));
