@@ -443,24 +443,29 @@ export class GameScene extends Phaser.Scene {
   // ========== RANKING POPUP (NEON GOLD) ==========
   async openRanking() {
     const accent = 0xFFD700;
-    const { startY, centerX } = this.createPopupBase('🏆 TOP RANKING', accent);
+    const { startY, centerX } = this.createPopupBase('🏆 DAILY RANKING', accent);
     let y = startY;
 
+    // Reset info
+    const resetTxt = this.add.text(centerX, y, 'Resets daily at 00:00 UTC', {
+        fontSize: '11px', color: '#667788'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    this.popupGroup.push(resetTxt);
+    y += 25;
+
     // Loading text
-    const loadingTxt = this.add.text(centerX, y + 60, '⏳ Loading...', {
-        fontSize: '16px', color: '#FFD700'
+    const loadingTxt = this.add.text(centerX, y + 40, '⏳ Fetching Leaderboard...', {
+        fontSize: '14px', color: '#FFD700'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(loadingTxt);
 
     // Fetch top 10 players
     const topPlayers = await GlobalState.fetchTopPlayers(10);
     const rewards = GlobalState.rankingRewards || [];
-
-    // Remove loading text
     loadingTxt.destroy();
 
     if (topPlayers.length === 0) {
-        const noData = this.add.text(centerX, y + 60, 'No ranking data available', {
+        const noData = this.add.text(centerX, y + 40, 'No ranking data for today yet.', {
             fontSize: '14px', color: '#667788'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
         this.popupGroup.push(noData);
@@ -468,11 +473,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Header row
-    const headerBg = this.add.rectangle(centerX, y, this.scale.width - 80, 28, 0x1a1500, 0.6).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0xFFD700);
-    const headerRank = this.add.text(centerX - 120, y, '#', { fontSize: '12px', color: '#FFD700', fontFamily: 'Arial' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    const headerName = this.add.text(centerX - 50, y, 'Player', { fontSize: '12px', color: '#FFD700', fontFamily: 'Arial' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    const headerScore = this.add.text(centerX + 40, y, 'Score', { fontSize: '12px', color: '#FFD700', fontFamily: 'Arial' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    const headerReward = this.add.text(centerX + 110, y, 'Reward', { fontSize: '12px', color: '#FFD700', fontFamily: 'Arial' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerBg = this.add.rectangle(centerX, y, this.scale.width - 80, 24, 0x1a1500, 0.6).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0xFFD700);
+    const headerRank = this.add.text(centerX - 120, y, '#', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerName = this.add.text(centerX - 50, y, 'Player', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerScore = this.add.text(centerX + 35, y, 'Daily Score', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerReward = this.add.text(centerX + 110, y, 'Reward Status', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(headerBg, headerRank, headerName, headerScore, headerReward);
     y += 22;
 
@@ -482,8 +487,12 @@ export class GameScene extends Phaser.Scene {
         const rank = index + 1;
         const isMe = player.id === GlobalState.playerId;
         const reward = rewards.find(r => r.rank === rank);
+        
+        // Check if reward is unlocked based on total deposit
+        const totalDep = isMe ? GlobalState.totalTonDeposited : (Number(player.total_ton_deposited) || 0);
+        const minRequired = reward ? (reward.min_ton || 0) : 0;
+        const isUnlocked = totalDep >= minRequired;
 
-        // Row colors
         let rowColor = 0x0d0d20;
         let textColor = '#FFFFFF';
         let rankIcon = `${rank}`;
@@ -496,36 +505,30 @@ export class GameScene extends Phaser.Scene {
         const rowBg = this.add.rectangle(centerX, y, itemW, 36, rowColor, 0.8).setScrollFactor(0).setDepth(202).setStrokeStyle(1, isMe ? 0x00FF88 : 0x333344);
 
         const rankTxt = this.add.text(centerX - 120, y, rankIcon, { fontSize: '14px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        const shortId = player.id ? player.id.substring(0, 6) + '..' : '???';
+        const nameTxt = this.add.text(centerX - 50, y, isMe ? '⭐ YOU' : shortId, { fontSize: '12px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        const scoreTxt = this.add.text(centerX + 35, y, `S${player.daily_best_stage}-F${player.daily_best_floor}`, { fontSize: '12px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
 
-        // Player name (short ID)
-        const shortId = player.id ? player.id.substring(0, 8) + '...' : 'Unknown';
-        const nameTxt = this.add.text(centerX - 50, y, isMe ? '⭐ YOU' : shortId, {
-            fontSize: '12px', color: textColor, fontFamily: 'Arial'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-
-        // Score (Stage - Floor)
-        const scoreTxt = this.add.text(centerX + 40, y, `S${player.best_stage}-F${player.best_floor}`, {
-            fontSize: '12px', color: textColor, fontFamily: 'Arial'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-
-        // Reward
-        const rewardLabel = reward ? `${reward.gold}G` : '-';
-        const rewardTxt = this.add.text(centerX + 110, y, rewardLabel, {
-            fontSize: '12px', color: '#FFD700', fontFamily: 'Arial'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        // Reward status
+        let rewardLabel = '-';
+        let rewardColor = '#667788';
+        if (reward) {
+            rewardLabel = isUnlocked ? `🎁 ${reward.gold}G` : `🔒 ${minRequired}T`;
+            rewardColor = isUnlocked ? '#FFD700' : '#FF3366';
+        }
+        const rewardTxt = this.add.text(centerX + 110, y, rewardLabel, { fontSize: '11px', color: rewardColor, fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
 
         this.popupGroup.push(rowBg, rankTxt, nameTxt, scoreTxt, rewardTxt);
         y += 32;
     });
 
-    // Your current ranking info
-    y += 10;
-    const myRankIndex = topPlayers.findIndex(p => p.id === GlobalState.playerId);
-    const myRankText = myRankIndex >= 0 ? `Your Rank: #${myRankIndex + 1}` : `Your Best: S${GlobalState.bestStage}-F${GlobalState.bestFloor}`;
-    const myInfo = this.add.text(centerX, y, myRankText, {
-        fontSize: '14px', color: '#00FF88', fontFamily: 'Arial'
+    // Your current info footer
+    y += 15;
+    const myFooterTxt = `Your Today's Best: S${GlobalState.dailyBestStage}-F${GlobalState.dailyBestFloor} | Deposited: ${GlobalState.totalTonDeposited.toFixed(2)} TON`;
+    const myFooter = this.add.text(centerX, y, myFooterTxt, {
+        fontSize: '12px', color: '#00FF88', fontFamily: 'Arial'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    this.popupGroup.push(myInfo);
+    this.popupGroup.push(myFooter);
   }
 
   createManualExplosion(x, y, color = 0xFFD700) {

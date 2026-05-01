@@ -8,6 +8,9 @@ export const GlobalState = {
   gold: 0,
   bestFloor: 1,
   bestStage: 1,
+  dailyBestFloor: 1,
+  dailyBestStage: 1,
+  totalTonDeposited: 0,
   helmetLevel: 0,
   armorLevel: 0,
   ownedWeapons: ['pistol'],
@@ -129,6 +132,9 @@ export const GlobalState = {
         this.gold = playerData.gold || 0;
         this.bestStage = playerData.best_stage || 1;
         this.bestFloor = playerData.best_floor || 1;
+        this.dailyBestFloor = playerData.daily_best_floor || 1;
+        this.dailyBestStage = playerData.daily_best_stage || 1;
+        this.totalTonDeposited = Number(playerData.total_ton_deposited) || 0;
         this.helmetLevel = playerData.helmet_level || 0;
         this.armorLevel = playerData.armor_level || 0;
         this.ownedWeapons = playerData.owned_weapons || ['pistol'];
@@ -163,27 +169,45 @@ export const GlobalState = {
   async saveToSupabase() {
     if (!this.playerId) return;
     try {
-      // Cap nhat best score neu can
-      const newBestFloor = Math.max(this.bestFloor, this.currentFloor);
-      const newBestStage = Math.max(this.bestStage, this.currentStage);
+      // Reset diem theo ngay UTC
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0]; // yyyy-mm-dd (UTC)
+
+      const updateData = {
+        gold: this.gold,
+        best_stage: Math.max(this.bestStage, this.currentStage),
+        best_floor: Math.max(this.bestFloor, this.currentFloor),
+        helmet_level: this.helmetLevel,
+        armor_level: this.armorLevel,
+        owned_weapons: this.ownedWeapons,
+        equipped_weapon: this.equippedWeapon
+      };
+
+      // Logic daily reset
+      const { data: currentPlay } = await supabase.from('players').select('last_reset_date, daily_best_floor, daily_best_stage').eq('id', this.playerId).single();
+      
+      if (currentPlay && currentPlay.last_reset_date !== todayStr) {
+          // Sang ngay moi -> reset diem daily
+          updateData.daily_best_floor = this.currentFloor;
+          updateData.daily_best_stage = this.currentStage;
+          updateData.last_reset_date = todayStr;
+      } else {
+          // Trong cung ngay -> cap nhat neu diem cao hon
+          updateData.daily_best_floor = Math.max(currentPlay?.daily_best_floor || 0, this.currentFloor);
+          updateData.daily_best_stage = Math.max(currentPlay?.daily_best_stage || 0, this.currentStage);
+      }
 
       const { error } = await supabase
           .from('players')
-          .update({
-            gold: this.gold,
-            best_stage: newBestStage,
-            best_floor: newBestFloor,
-            helmet_level: this.helmetLevel,
-            armor_level: this.armorLevel,
-            owned_weapons: this.ownedWeapons,
-            equipped_weapon: this.equippedWeapon
-          })
+          .update(updateData)
           .eq('id', this.playerId);
 
       if (error) throw error;
 
-      this.bestFloor = newBestFloor;
-      this.bestStage = newBestStage;
+      this.bestFloor = updateData.best_floor;
+      this.bestStage = updateData.best_stage;
+      this.dailyBestFloor = updateData.daily_best_floor || this.dailyBestFloor;
+      this.dailyBestStage = updateData.daily_best_stage || this.dailyBestStage;
       console.log('[Supabase] Saved!');
     } catch (err) {
       console.error('[Supabase] Save error:', err);
@@ -302,7 +326,15 @@ export const GlobalState = {
         boc: boc,
         status: 'success'
       });
-      if (error) console.error('[Supabase] Log TON tx error:', error);
+      if (error) {
+          console.error('[Supabase] Log TON tx error:', error);
+      } else {
+          // Cap nhat tong nap tích lũy
+          this.totalTonDeposited += Number(tonAmount);
+          await supabase.from('players')
+              .update({ total_ton_deposited: this.totalTonDeposited })
+              .eq('id', this.playerId);
+      }
     } catch (err) {
       console.error('[Supabase] Log TON tx error:', err);
     }
@@ -313,11 +345,13 @@ export const GlobalState = {
   // =============================================
   async fetchTopPlayers(limit = 10) {
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
           .from('players')
-          .select('id, best_stage, best_floor, gold')
-          .order('best_stage', { ascending: false })
-          .order('best_floor', { ascending: false })
+          .select('id, daily_best_stage, daily_best_floor, total_ton_deposited')
+          .eq('last_reset_date', todayStr) // Chi lay diem cua ngay hom nay
+          .order('daily_best_stage', { ascending: false })
+          .order('daily_best_floor', { ascending: false })
           .limit(limit);
 
       if (error) throw error;
