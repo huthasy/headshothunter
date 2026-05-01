@@ -731,6 +731,31 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  showBlinkingText(msg, x, y, color, size, type = 'default') {
+    // Fixed vertical slots based on message type to prevent overlapping
+    let finalY = y;
+    if (type === 'headshot') finalY = y - 80;
+    else if (type === 'hit') finalY = y - 40;
+    else if (type === 'hp') finalY = y + 20;
+
+    const txt = this.add.text(x, finalY, msg, { 
+        fontFamily: 'Arial Black, Arial', 
+        fontSize: `${size}px`, 
+        color: color, 
+        stroke: '#000000',
+        strokeThickness: 4
+    }).setOrigin(0.5).setDepth(200).setScrollFactor(0);
+    
+    this.tweens.add({ 
+        targets: txt, 
+        y: finalY - 60, 
+        alpha: 0, 
+        duration: 1200, 
+        ease: 'Cubic.easeOut',
+        onComplete: () => txt.destroy() 
+    });
+  }
+
   hit(isHead) {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
@@ -739,25 +764,28 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
+    // Fixed slots and mobile-friendly sizes
+    const fontSize = this.scale.width < 500 ? 18 : 24;
+
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y - 60, '#ff0000', 20, -30);
+        this.showBlinkingText('HEADSHOT!', e.x, e.y, '#ff0000', fontSize + 4, 'headshot');
     } else {
-        this.showBlinkingText('HIT!', e.x, e.y - 60, '#ffffff', 16, -10);
+        this.showBlinkingText('HIT!', e.x, e.y, '#ffffff', fontSize, 'hit');
     }
 
     if (e.isBoss && !isDead) {
-        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 60, '#ffcc00', 18, 20);
+        this.showBlinkingText(`BOSS HP: ${e.hp}/3`, e.x, e.y, '#ffcc00', fontSize, 'hp');
     }
 
     const knockbackX = direction * 40;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
-        x: `+=${knockbackX}`, y: '-=15', angle: direction * 45, duration: 300, ease: 'Power2',
+        x: `+=${knockbackX}`, y: '-=20', angle: direction * 45, duration: 300, ease: 'Power2',
         onStart: () => { 
             if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
         },
         onComplete: () => {
-            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
+            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=20', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
         }
     });
 
@@ -768,14 +796,16 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.showBossWarning("BOSS RETREATING!");
             
-            // Animation Boss chay len voi hieu ung nghien nguoi
+            // Animation Boss chay len - MANH HON
             const retreatTweens = [];
             this.currentSteps.forEach((step, idx) => {
+                // Bobbing effect (nhap nho) + Stronger tilting (nghien manh)
                 retreatTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y,
-                    angle: idx % 2 === 0 ? 10 : -10, // Tilting effect
-                    duration: 60, ease: 'Linear'
+                    x: step.x, 
+                    y: step.y - (idx % 2 === 0 ? 10 : 0), // Bobbing up
+                    angle: idx % 2 === 0 ? 15 : -15, 
+                    duration: 80, ease: 'Sine.easeInOut'
                 });
             });
 
@@ -841,26 +871,6 @@ export class GameScene extends Phaser.Scene {
         targets: this.cameras.main,
         scrollY: targetScrollY, duration: 500, ease: 'Power2',
         onComplete: () => { this.spawnEnemy(); this.isTransitioning = false; }
-    });
-  }
-
-  showBlinkingText(msg, x, y, color, size, offsetY = 0) {
-    const txt = this.add.text(x, y + offsetY, msg, { 
-        fontFamily: 'Arial', 
-        fontSize: `${size}px`, 
-        color: color, 
-        fontWeight: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
-    
-    this.tweens.add({ 
-        targets: txt, 
-        y: '-=60', 
-        alpha: 0, 
-        duration: 1000, 
-        ease: 'Power1',
-        onComplete: () => txt.destroy() 
     });
   }
 }
