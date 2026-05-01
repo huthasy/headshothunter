@@ -52,12 +52,28 @@ export class GameScene extends Phaser.Scene {
     this.goldText = this.add.text(60, 25, `${GlobalState.gold}`, { fontSize: '32px', color: '#FFC107', fontWeight: 'bold' }).setScrollFactor(0).setDepth(100);
     this.hpText = this.add.text(20, 70, `HP: ${this.playerHP}`, { fontSize: '24px', color: '#00FF00' }).setScrollFactor(0).setDepth(100);
 
-    // SHOP ICON
+    // WALLET ICON - Neon Blue/Green
+    const walletColor = tonManager.isConnected() ? 0x00FF88 : 0x00BFFF;
+    this.walletBg = this.add.rectangle(30, this.scale.height - 180, 50, 50, 0x001020, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, walletColor);
+    this.walletIcon = this.add.text(30, this.scale.height - 180, tonManager.isConnected() ? '🔗' : '🔌', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    this.walletBg.on('pointerdown', async (p, x, y, e) => { 
+        e.stopPropagation(); 
+        if (tonManager.isConnected()) {
+            if (confirm("Disconnect Wallet?")) {
+                tonManager.disconnect();
+                this.updateWalletUI();
+            }
+        } else {
+            await tonManager.connect();
+            this.updateWalletUI();
+        }
+    });
+    this.walletPulse = this.tweens.add({ targets: this.walletBg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
     // SHOP ICON - Neon Magenta
     const shopBg = this.add.rectangle(30, this.scale.height - 120, 50, 50, 0x1a0020, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xFF00FF);
     const shopIcon = this.add.text(30, this.scale.height - 120, '🛒', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
     shopBg.on('pointerdown', (p, x, y, e) => { e.stopPropagation(); this.openShop(); });
-    // Neon pulse
     this.tweens.add({ targets: shopBg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
 
     // HERO ICON - Neon Cyan
@@ -67,6 +83,13 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: heroBg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1, delay: 400 });
 
     this.popupGroup = [];
+  }
+
+  updateWalletUI() {
+    const connected = tonManager.isConnected();
+    const color = connected ? 0x00FF88 : 0x00BFFF;
+    if (this.walletBg) this.walletBg.setStrokeStyle(2, color);
+    if (this.walletIcon) this.walletIcon.setText(connected ? '🔗' : '🔌');
   }
 
   clearPopup() {
