@@ -23,6 +23,7 @@ export const GlobalState = {
   goldPackages: [],
   tonReceiveAddress: '',
   laserBossMultiplier: 3,
+  rankingRewards: [],
 
   // === LOADING STATE ===
   isLoaded: false,
@@ -85,6 +86,9 @@ export const GlobalState = {
               break;
             case 'laser_boss_multiplier':
               this.laserBossMultiplier = Number(row.value) || 3;
+              break;
+            case 'ranking_rewards':
+              this.rankingRewards = row.value || [];
               break;
           }
         }
@@ -301,6 +305,26 @@ export const GlobalState = {
       if (error) console.error('[Supabase] Log TON tx error:', error);
     } catch (err) {
       console.error('[Supabase] Log TON tx error:', err);
+    }
+  },
+
+  // =============================================
+  // TOP RANKING
+  // =============================================
+  async fetchTopPlayers(limit = 10) {
+    try {
+      const { data, error } = await supabase
+          .from('players')
+          .select('id, best_stage, best_floor, gold')
+          .order('best_stage', { ascending: false })
+          .order('best_floor', { ascending: false })
+          .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('[Supabase] Fetch top players error:', err);
+      return [];
     }
   }
 };
