@@ -564,14 +564,14 @@ export class GameScene extends Phaser.Scene {
     for (let i=0; i<numSteps; i++) {
         currentX += direction * stepWidth/2; currentY -= stepHeight;
         currentBatch.push(this.createPlat(currentX, currentY, stepWidth, color, isBg));
-        if (!isBg) stepCoordinates.push({ x: currentX, y: currentY });
+        stepCoordinates.push({ x: currentX, y: currentY });
         currentX += direction * stepWidth/2;
     }
     const finalELandingCenter = currentX + direction * (landingWidth/2);
     currentBatch.push(this.createPlat(finalELandingCenter, currentY, landingWidth, color, isBg));
     const nextSide = pSide === 'left' ? 'right' : 'left';
     const nextPlayerX = nextSide === 'left' ? this.scale.width * 0.15 : this.scale.width * 0.85;
-    if (!isBg) stepCoordinates.push({ x: nextPlayerX, y: currentY });
+    stepCoordinates.push({ x: nextPlayerX, y: currentY });
     currentBatch.push(this.createPlat(fixedPLandingCenter - direction * 800, startY, 1600, color, isBg));
     currentBatch.push(this.createPlat(finalELandingCenter + direction * 800, currentY, 1600, color, isBg));
     const enemyFinalX = finalELandingCenter - direction * (landingWidth/2 - 20); 
