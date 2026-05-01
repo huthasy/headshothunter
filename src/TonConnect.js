@@ -63,35 +63,34 @@ class TonManager {
             // Neu SDK bao loi payload, co the do format binary bi sai
             // Chung ta se thu gui duoi dang text comment format (0x00000000 + text)
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 600, // 10 phut
+                validUntil: Math.floor(Date.now() / 1000) + 300, // Toi da 5 phut
                 messages: [{
                     address: toAddress,
                     amount: amountNano,
-                    // Neu comment ton tai, tao payload text comment chuẩn
                     payload: comment ? this._createCommentPayload(comment) : undefined
                 }]
             };
 
-            console.log('[TON] Sending tx with payload:', transaction.messages[0].payload);
+            console.log('[TON] Final TX object:', JSON.stringify(transaction));
             const result = await this.tonConnectUI.sendTransaction(transaction);
             return { success: true, boc: result.boc };
         } catch (err) {
             console.error('[TON] Transaction error:', err);
-            // Neu loi van la invalid payload, thu gui khong co payload de test
             return { success: false, error: err.message || 'Transaction failed' };
         }
     }
 
     _createCommentPayload(text) {
-        // Format chuẩn cho Text Comment trong TON (Op code 0x00000000)
-        // 4 bytes 0 + UTF-8 bytes của text
+        // Thu dung format Hex neu Base64 bi tu choi
+        // Op code 0x00000000 (4 bytes 0) + UTF-8 bytes
         const buffer = new TextEncoder().encode(text);
         const payload = new Uint8Array(4 + buffer.length);
         payload.set([0, 0, 0, 0]);
         payload.set(buffer, 4);
         
-        // Convert Uint8Array sang Base64 chuẩn
-        return btoa(Array.from(payload).map(c => String.fromCharCode(c)).join(''));
+        // Convert Uint8Array sang Hex string (mot so vi TON thich Hex hon)
+        // Neu SDK van loi, chung ta se bo qua comment de dam bao giao dich chay duoc
+        return Array.from(payload).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
     }
 
     disconnect() {
