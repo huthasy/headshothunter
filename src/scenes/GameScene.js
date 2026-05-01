@@ -746,15 +746,15 @@ export class GameScene extends Phaser.Scene {
         fontSize: `${size}px`, 
         color: color, 
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: 2
     }).setOrigin(0.5).setDepth(200).setScrollFactor(0);
     
     this.tweens.add({ 
         targets: txt, 
-        y: finalY - 60, 
+        y: finalY - 40, 
         alpha: 0, 
-        duration: 1200, 
-        ease: 'Cubic.easeOut',
+        duration: 1000, 
+        ease: 'Power1',
         onComplete: () => txt.destroy() 
     });
   }
@@ -767,11 +767,11 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
-    // Fixed slots and mobile-friendly sizes
-    const fontSize = this.scale.width < 500 ? 18 : 24;
+    // Optimized for small mobile screens
+    const fontSize = this.scale.width < 500 ? 14 : 20;
 
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y, '#ff0000', fontSize + 4, 'headshot');
+        this.showBlinkingText('HEADSHOT!', e.x, e.y, '#ff0000', fontSize + 2, 'headshot');
     } else {
         this.showBlinkingText('HIT!', e.x, e.y, '#ffffff', fontSize, 'hit');
     }
