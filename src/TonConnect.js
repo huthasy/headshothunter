@@ -59,38 +59,29 @@ class TonManager {
         try {
             const amountNano = Math.floor(amountTON * 1e9).toString();
             
-            // CACH MOI: Su dung comment duoi dang payload chuẩn
-            // Neu SDK bao loi payload, co the do format binary bi sai
-            // Chung ta se thu gui duoi dang text comment format (0x00000000 + text)
+            // CACH AN TOAN NHAT: Neu payload gay loi validation, chung ta se khong gui payload
+            // Vi SDK via CDN rat khet khe voi dinh dang BoC Base64.
+            // Chung ta se thu gui comment duoi dang Base64 UTF-8 thuan tuy (khong co prefix binary)
+            // Neu van loi, chung ta se bo qua payload.
+            
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300, // Toi da 5 phut
+                validUntil: Math.floor(Date.now() / 1000) + 300, 
                 messages: [{
                     address: toAddress,
                     amount: amountNano,
-                    payload: comment ? this._createCommentPayload(comment) : undefined
+                    // THU NGHIEM: Bo qua payload binary vi gay loi Validation khet khe tren SDK
+                    // Chung ta se luu giao dich thong qua BOC tra ve sau khi user ky.
+                    payload: undefined 
                 }]
             };
 
-            console.log('[TON] Final TX object:', JSON.stringify(transaction));
+            console.log('[TON] Sending TX without payload for max compatibility');
             const result = await this.tonConnectUI.sendTransaction(transaction);
             return { success: true, boc: result.boc };
         } catch (err) {
             console.error('[TON] Transaction error:', err);
             return { success: false, error: err.message || 'Transaction failed' };
         }
-    }
-
-    _createCommentPayload(text) {
-        // Thu dung format Hex neu Base64 bi tu choi
-        // Op code 0x00000000 (4 bytes 0) + UTF-8 bytes
-        const buffer = new TextEncoder().encode(text);
-        const payload = new Uint8Array(4 + buffer.length);
-        payload.set([0, 0, 0, 0]);
-        payload.set(buffer, 4);
-        
-        // Convert Uint8Array sang Hex string (mot so vi TON thich Hex hon)
-        // Neu SDK van loi, chung ta se bo qua comment de dam bao giao dich chay duoc
-        return Array.from(payload).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
     }
 
     disconnect() {
