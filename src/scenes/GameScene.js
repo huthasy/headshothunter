@@ -490,25 +490,36 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnEnemy() {
-    const { eX, eY, steps, enemyLandingCenter } = this.generateMountain(this.currentY, this.playerSide, 0x256A7D, false);
-    this.nextFloorSteps = Phaser.Math.Between(3, 7);
+    const { eX, eY, steps } = this.generateMountain(this.currentY, this.playerSide, 0x256A7D, false);
+    this.enemyY = eY;
+    
+    // Quyet dinh so bac cho tang TIEP THEO
+    const nextFloor = GlobalState.currentFloor + 1;
+    const isNextBoss = (nextFloor % 5 === 0);
+    this.nextFloorSteps = isNextBoss ? Phaser.Math.Between(6, 7) : Phaser.Math.Between(3, 5);
+    
     const nextSide = this.playerSide === 'left' ? 'right' : 'left';
     this.generateMountain(eY, nextSide, 0x1B4F5E, true);
-    this.enemyY = eY;
     this.currentSteps = steps;
     
-    const floor = GlobalState.currentFloor;
-    const isBossFloor = (floor === 6 || floor === 7);
+    const numSteps = steps.length;
+    // Boss luon co 6 hoac 7 bac thang (khong tinh bac landing)
+    // isBossFloor bay gio dua tren so luong bac (numSteps)
+    const isBoss = (numSteps === 6 || numSteps === 7);
     
-    // Canh bao khi dang o tang boss
-    if (isBossFloor) {
-        this.showBossWarning("Enemy hidden! Using laser gun to detect...");
-    }
-
     const direction = this.playerSide === 'left' ? 1 : -1;
     const offScreenX = direction === 1 ? this.scale.width + 100 : -100;
-    this.enemy = new Enemy(this, offScreenX, eY, isBossFloor, GlobalState.currentStage);
+    this.enemy = new Enemy(this, offScreenX, eY, isBoss, GlobalState.currentStage);
     this.enemy.active = true;
+
+    // CANH BAO THEO THU TU
+    if (isBoss) {
+        this.showBossWarning("BOSS DETECTED!");
+        this.time.delayedCall(2000, () => {
+            this.showBossWarning("Enemy hidden! Using laser gun to detect...");
+        });
+    }
+
     this.tweens.add({
         targets: [this.enemy.bodySprite, this.enemy.headSprite, this.enemy.gun],
         x: eX, duration: 500, ease: 'Power1',
@@ -522,7 +533,9 @@ export class GameScene extends Phaser.Scene {
     if (this.enemy.isBoss) {
         const currentW = GlobalState.weapons[GlobalState.equippedWeapon];
         if (currentW && currentW.type === 'laser') {
-            this.showBossWarning("WARNING: BOSS JAMMING LASER SIGHT!");
+            this.time.delayedCall(4000, () => {
+                this.showBossWarning("WARNING: BOSS JAMMING LASER SIGHT!");
+            });
             this.player.laserDisabledByBoss = true;
         }
     } else {
