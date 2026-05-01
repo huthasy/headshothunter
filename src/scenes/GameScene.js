@@ -300,11 +300,16 @@ export class GameScene extends Phaser.Scene {
                         await GlobalState.saveToSupabase();
                         await GlobalState.logTonTransaction(pkg.id, pkg.gold, pkg.price_ton, result.boc);
                         this.goldText.setText(`${GlobalState.gold}`);
+                        
+                        // Cập nhật trạng thái ví ở màn hình chính
+                        this.updateWalletUI();
+
                         // Success flash
                         this.showBlinkingText(`+${pkg.gold} GOLD!`, this.scale.width/2, this.scale.height/2, '#FFD700', 32);
                         this.openShop();
                     } else {
                         buyBtn.setText(`${pkg.price_ton} TON`);
+                        this.updateWalletUI(); // Cập nhật ngay cả khi lỗi (vẫn có thể đã connect thành công)
                         this.showBlinkingText(result.error || 'FAILED', this.scale.width/2, this.scale.height/2, '#FF3366', 24);
                     }
                 } catch (err) {
