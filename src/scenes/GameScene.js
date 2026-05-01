@@ -496,9 +496,18 @@ export class GameScene extends Phaser.Scene {
     this.generateMountain(eY, nextSide, 0x1B4F5E, true);
     this.enemyY = eY;
     this.currentSteps = steps;
+    
+    const floor = GlobalState.currentFloor;
+    const isBossFloor = (floor === 6 || floor === 7);
+    
+    // Canh bao khi dang o tang boss
+    if (isBossFloor) {
+        this.showBossWarning("Enemy hidden! Using laser gun to detect...");
+    }
+
     const direction = this.playerSide === 'left' ? 1 : -1;
     const offScreenX = direction === 1 ? this.scale.width + 100 : -100;
-    this.enemy = new Enemy(this, offScreenX, eY, GlobalState.currentFloor % 5 === 0, GlobalState.currentStage);
+    this.enemy = new Enemy(this, offScreenX, eY, isBossFloor, GlobalState.currentStage);
     this.enemy.active = true;
     this.tweens.add({
         targets: [this.enemy.bodySprite, this.enemy.headSprite, this.enemy.gun],

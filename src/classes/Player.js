@@ -31,9 +31,9 @@ export class Player {
   getAimLength() {
     const weapon = this.getWeapon();
     const baseLength = 80;
-    // Neu la laser bi boss disable -> dung multiplier tu config (mac dinh 3)
+    // Neu la laser bi boss disable -> dung multiplier tu config cua sung (mac dinh 3)
     if (weapon.type === 'laser' && this.laserDisabledByBoss) {
-        return baseLength * (GlobalState.laserBossMultiplier || 3);
+        return baseLength * (weapon.laser_boss_multiplier || 3);
     }
     return baseLength * (weapon.rangeMultiplier || 1);
   }
