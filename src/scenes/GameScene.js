@@ -740,48 +740,50 @@ export class GameScene extends Phaser.Scene {
     const direction = this.playerSide === 'left' ? 1 : -1;
 
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y - 70, '#ff0000', 36);
+        this.showBlinkingText('HEADSHOT!', e.x, e.y - 60, '#ff0000', 20, -30);
     } else {
-        this.showBlinkingText('HIT!', e.x, e.y - 70, '#ffffff', 24);
+        this.showBlinkingText('HIT!', e.x, e.y - 60, '#ffffff', 16, -10);
     }
 
     if (e.isBoss && !isDead) {
-        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 100, '#ffcc00', 28);
+        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 60, '#ffcc00', 18, 20);
     }
 
     const knockbackX = direction * 40;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
-        x: `+=${knockbackX}`, y: '-=15', angle: direction * 90, duration: 400, ease: 'Cubic.easeOut',
+        x: `+=${knockbackX}`, y: '-=15', angle: direction * 45, duration: 300, ease: 'Power2',
         onStart: () => { 
             if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
         },
         onComplete: () => {
-            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', duration: 200, ease: 'Bounce.easeOut' });
+            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
         }
     });
 
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(800, () => {
         if (isDead) {
-            // DICH CHET HAN -> LEO TANG VA SANG FLOOR MOI
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else {
-            // BOSS CON MAU -> BO CHAY LEN TANG TREN
-            this.showBossWarning("BOSS RETREATING! CHASE HIM!");
+            this.showBossWarning("BOSS RETREATING!");
             
-            // Animation Boss chay len
-            this.tweens.chain({
-                targets: [e.bodySprite, e.headSprite, e.gun],
-                tweens: this.currentSteps.map((step) => ({
+            // Animation Boss chay len voi hieu ung nghien nguoi
+            const retreatTweens = [];
+            this.currentSteps.forEach((step, idx) => {
+                retreatTweens.push({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
                     x: step.x, y: step.y,
-                    duration: 50, ease: 'Linear'
-                })),
+                    angle: idx % 2 === 0 ? 10 : -10, // Tilting effect
+                    duration: 60, ease: 'Linear'
+                });
+            });
+
+            this.tweens.chain({
+                tweens: retreatTweens,
                 onComplete: () => {
                     e.destroy();
-                    // Player duoi theo
                     this.walkUpStairs(() => {
-                        // KHONG goi nextFloor, chi di chuyen camera va spawn tiep
                         this.currentY = this.enemyY;
                         this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
                         this.currentFloorSteps = this.nextFloorSteps;
@@ -796,7 +798,6 @@ export class GameScene extends Phaser.Scene {
                             scrollY: targetScrollY, duration: 500, ease: 'Power2',
                             onComplete: () => { 
                                 this.spawnEnemy(); 
-                                // Giu nguyen HP cho Boss moi
                                 if (this.enemy) this.enemy.hp = e.hp;
                                 this.isTransitioning = false; 
                             }
@@ -843,10 +844,23 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  showBlinkingText(msg, x, y, color, size) {
-    const txt = this.add.text(x, y, msg, { fontFamily: 'Arial', fontSize: `${size}px`, color: color, fontWeight: 'bold' }).setOrigin(0.5).setDepth(20);
-    this.tweens.add({ targets: txt, alpha: 0.2, duration: 150, yoyo: true, repeat: 4, onComplete: () => {
-      this.tweens.add({ targets: txt, y: y - 30, alpha: 0, duration: 500, onComplete: () => txt.destroy() });
-    }});
+  showBlinkingText(msg, x, y, color, size, offsetY = 0) {
+    const txt = this.add.text(x, y + offsetY, msg, { 
+        fontFamily: 'Arial', 
+        fontSize: `${size}px`, 
+        color: color, 
+        fontWeight: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+    
+    this.tweens.add({ 
+        targets: txt, 
+        y: '-=60', 
+        alpha: 0, 
+        duration: 1000, 
+        ease: 'Power1',
+        onComplete: () => txt.destroy() 
+    });
   }
 }
