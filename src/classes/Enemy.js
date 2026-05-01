@@ -29,7 +29,7 @@ export class Enemy {
         this.gun.setFlipX(false);
     }
 
-    this.hp = isBoss ? 2 : 1;
+    this.hp = isBoss ? 3 : 1;
   }
 
   fireAtPlayer(player) {
@@ -54,9 +54,8 @@ export class Enemy {
     return bullet;
   }
 
-  takeDamage(isHead) {
-    const damage = isHead ? 2 : 1;
-    this.hp -= damage;
+  takeDamage() {
+    this.hp -= 1;
     if (this.hp <= 0) {
       this.active = false;
       return true;

@@ -734,22 +734,81 @@ export class GameScene extends Phaser.Scene {
   hit(isHead) {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
-    if (isHead) this.showBlinkingText('HEADSHOT x2!', this.enemy.x, this.enemy.y - 70, '#ff0000', 36);
+
     const e = this.enemy;
+    const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
+
+    if (isHead) {
+        this.showBlinkingText('HEADSHOT!', e.x, e.y - 70, '#ff0000', 36);
+    } else {
+        this.showBlinkingText('HIT!', e.x, e.y - 70, '#ffffff', 24);
+    }
+
+    if (e.isBoss && !isDead) {
+        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 100, '#ffcc00', 28);
+    }
+
     const knockbackX = direction * 40;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
         x: `+=${knockbackX}`, y: '-=15', angle: direction * 90, duration: 400, ease: 'Cubic.easeOut',
-        onStart: () => { this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); },
+        onStart: () => { 
+            if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
+        },
         onComplete: () => {
             this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', duration: 200, ease: 'Bounce.easeOut' });
         }
     });
-    this.time.delayedCall(1200, () => { e.destroy(); this.walkUpStairs(); });
+
+    this.time.delayedCall(1000, () => {
+        if (isDead) {
+            // DICH CHET HAN -> LEO TANG VA SANG FLOOR MOI
+            e.destroy();
+            this.walkUpStairs(() => { this.nextFloor(); });
+        } else {
+            // BOSS CON MAU -> BO CHAY LEN TANG TREN
+            this.showBossWarning("BOSS RETREATING! CHASE HIM!");
+            
+            // Animation Boss chay len
+            this.tweens.chain({
+                targets: [e.bodySprite, e.headSprite, e.gun],
+                tweens: this.currentSteps.map((step) => ({
+                    x: step.x, y: step.y,
+                    duration: 50, ease: 'Linear'
+                })),
+                onComplete: () => {
+                    e.destroy();
+                    // Player duoi theo
+                    this.walkUpStairs(() => {
+                        // KHONG goi nextFloor, chi di chuyen camera va spawn tiep
+                        this.currentY = this.enemyY;
+                        this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
+                        this.currentFloorSteps = this.nextFloorSteps;
+                        this.stairs.forEach(s => { if (s) s.destroy(); });
+                        this.stairs = [...this.bgStairs];
+                        this.bgStairs = [];
+                        this.stairs.forEach(s => s.setTint(0x256A7D).setDepth(0));
+                        
+                        const targetScrollY = this.currentY - (this.scale.height - 200);
+                        this.tweens.add({
+                            targets: this.cameras.main,
+                            scrollY: targetScrollY, duration: 500, ease: 'Power2',
+                            onComplete: () => { 
+                                this.spawnEnemy(); 
+                                // Giu nguyen HP cho Boss moi
+                                if (this.enemy) this.enemy.hp = e.hp;
+                                this.isTransitioning = false; 
+                            }
+                        });
+                    });
+                }
+            });
+        }
+    });
   }
 
-  walkUpStairs() {
+  walkUpStairs(onComplete) {
     this.tweens.chain({
         targets: this.player,
         tweens: this.currentSteps.map((step) => ({
@@ -757,7 +816,9 @@ export class GameScene extends Phaser.Scene {
             duration: 100, ease: 'Sine.easeInOut',
             onUpdate: () => { this.player.setPosition(this.player.x, this.player.y); }
         })),
-        onComplete: () => { this.nextFloor(); }
+        onComplete: () => { 
+            if (onComplete) onComplete();
+        }
     });
   }
 
