@@ -22,6 +22,7 @@ export const GlobalState = {
   sweepAngle: 60,
   goldPackages: [],
   tonReceiveAddress: '',
+  laserBossMultiplier: 3,
 
   // === LOADING STATE ===
   isLoaded: false,
@@ -81,6 +82,9 @@ export const GlobalState = {
               break;
             case 'ton_receive_address':
               this.tonReceiveAddress = row.value || '';
+              break;
+            case 'laser_boss_multiplier':
+              this.laserBossMultiplier = Number(row.value) || 3;
               break;
           }
         }
