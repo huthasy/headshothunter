@@ -10,7 +10,6 @@ class TonManager {
     async init() {
         if (this.initialized) return;
         try {
-            // Doi thu vien load tu CDN xong
             if (!window.TON_CONNECT_UI) {
                 console.warn('[TON] Waiting for CDN script...');
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -24,8 +23,6 @@ class TonManager {
                 });
                 this.initialized = true;
                 console.log('[TON] TonConnect initialized via CDN');
-            } else {
-                console.error('[TON] Library not found in window.TON_CONNECT_UI');
             }
         } catch (err) {
             console.error('[TON] Init error:', err);
@@ -61,38 +58,40 @@ class TonManager {
 
         try {
             const amountNano = Math.floor(amountTON * 1e9).toString();
+            
+            // CACH MOI: Su dung comment duoi dang payload chuẩn
+            // Neu SDK bao loi payload, co the do format binary bi sai
+            // Chung ta se thu gui duoi dang text comment format (0x00000000 + text)
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300,
+                validUntil: Math.floor(Date.now() / 1000) + 600, // 10 phut
                 messages: [{
                     address: toAddress,
                     amount: amountNano,
+                    // Neu comment ton tai, tao payload text comment chuẩn
                     payload: comment ? this._createCommentPayload(comment) : undefined
                 }]
             };
 
+            console.log('[TON] Sending tx with payload:', transaction.messages[0].payload);
             const result = await this.tonConnectUI.sendTransaction(transaction);
             return { success: true, boc: result.boc };
         } catch (err) {
             console.error('[TON] Transaction error:', err);
+            // Neu loi van la invalid payload, thu gui khong co payload de test
             return { success: false, error: err.message || 'Transaction failed' };
         }
     }
 
     _createCommentPayload(text) {
-        try {
-            const encoder = new TextEncoder();
-            const bytes = encoder.encode(text);
-            const payload = new Uint8Array(4 + bytes.length);
-            // 4 bytes 0 at the beginning for text comment
-            payload.set([0, 0, 0, 0]);
-            payload.set(bytes, 4);
-            
-            // Convert to Base64 safely
-            return btoa(String.fromCharCode.apply(null, payload));
-        } catch (e) {
-            console.error('[TON] Payload error:', e);
-            return undefined;
-        }
+        // Format chuẩn cho Text Comment trong TON (Op code 0x00000000)
+        // 4 bytes 0 + UTF-8 bytes của text
+        const buffer = new TextEncoder().encode(text);
+        const payload = new Uint8Array(4 + buffer.length);
+        payload.set([0, 0, 0, 0]);
+        payload.set(buffer, 4);
+        
+        // Convert Uint8Array sang Base64 chuẩn
+        return btoa(Array.from(payload).map(c => String.fromCharCode(c)).join(''));
     }
 
     disconnect() {
