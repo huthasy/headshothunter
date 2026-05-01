@@ -601,8 +601,11 @@ export class GameScene extends Phaser.Scene {
     const nextIsBoss = ((floor + 1) % 5 === 0);
     this.nextFloorSteps = nextIsBoss ? Phaser.Math.Between(6, 7) : Phaser.Math.Between(3, 7);
 
+    // Sinh cau thang hau canh cho tang tiep theo
     const nextSide = this.playerSide === 'left' ? 'right' : 'left';
-    this.generateMountain(eY, nextSide, 0x1B4F5E, true);
+    const bgResult = this.generateMountain(eY, nextSide, 0x1B4F5E, true);
+    this.bgStepsCoordinates = bgResult.steps; // Luu lai de boss chay theo
+    
     this.enemyY = eY;
     this.currentSteps = steps;
 
@@ -796,16 +799,17 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.showBossWarning("BOSS RETREATING!");
             
-            // Animation Boss chay len - MANH HON
+            // Animation Boss chay len - DUNG CAU THANG HAU CANH (TANG TREN)
             const retreatTweens = [];
-            this.currentSteps.forEach((step, idx) => {
-                // Bobbing effect (nhap nho) + Stronger tilting (nghien manh)
+            const stepsToFollow = this.bgStepsCoordinates || this.currentSteps;
+            
+            stepsToFollow.forEach((step, idx) => {
                 retreatTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
                     x: step.x, 
-                    y: step.y - (idx % 2 === 0 ? 10 : 0), // Bobbing up
+                    y: step.y - (idx % 2 === 0 ? 10 : 0), 
                     angle: idx % 2 === 0 ? 15 : -15, 
-                    duration: 80, ease: 'Sine.easeInOut'
+                    duration: 80, ease: 'Linear'
                 });
             });
 
