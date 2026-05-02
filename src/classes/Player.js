@@ -141,8 +141,8 @@ export class Player {
   fire() {
     this.isShooting = true;
     
-    // Play shooting sound
-    if (this.scene.sound.get('shoot')) {
+    // Play shooting sound if it successfully loaded
+    if (this.scene.cache.audio.exists('shoot')) {
         this.scene.sound.play('shoot', { volume: 0.5 });
     }
 

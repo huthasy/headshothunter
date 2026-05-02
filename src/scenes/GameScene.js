@@ -33,9 +33,11 @@ export class GameScene extends Phaser.Scene {
     // Audio - handle browser audio unlock policies
     if (!this.registry.get('bgm_playing')) {
         const playBgm = () => {
-            this.bgm = this.sound.add('bgm', { loop: true, volume: 0.3 });
-            this.bgm.play();
-            this.registry.set('bgm_playing', true);
+            if (this.cache.audio.exists('bgm')) {
+                this.bgm = this.sound.add('bgm', { loop: true, volume: 0.3 });
+                this.bgm.play();
+                this.registry.set('bgm_playing', true);
+            }
         };
         if (this.sound.locked) {
             this.sound.once(Phaser.Sound.Events.UNLOCKED, playBgm);
