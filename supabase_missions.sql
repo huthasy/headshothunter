@@ -18,8 +18,8 @@ INSERT INTO game_config (key, value) VALUES ('daily_missions', '[
     "name": "Join Telegram Group",
     "desc": "Join our community group",
     "reward": 50,
-    "link": "https://t.me/YOUR_GROUP_LINK",
-    "telegram_chat_id": "-100123456789"
+    "link": "https://t.me/headshot_hunter_global_chat",
+    "telegram_chat_id": "@headshot_hunter_global_chat"
   }
 ]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
@@ -30,8 +30,8 @@ INSERT INTO game_config (key, value) VALUES ('onetime_missions', '[
     "name": "Play Hot Shot",
     "desc": "Try our soccer game",
     "reward": 100,
-    "link": "https://t.me/YOUR_BOT/hotshot",
-    "telegram_chat_id": "-100987654321"
+    "link": "https://t.me/HotShotSoccerBot/game",
+    "telegram_chat_id": ""
   }
 ]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 

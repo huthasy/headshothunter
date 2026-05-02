@@ -435,12 +435,14 @@ export const GlobalState = {
   async checkTelegramJoin(missionId) {
     try {
         const mission = [...this.dailyMissions, ...this.onetimeMissions].find(m => m.id === missionId);
-        console.log(`[Verify] Checking mission: ${missionId}`, mission);
         
+        // Neu KHONG co chat_id (vi du link ref game khac), cho phep claim luon
         if (!mission || !mission.telegram_chat_id) {
-            console.warn("[Verify] Missing telegram_chat_id for mission:", missionId);
-            return false;
+            console.log(`[Verify] No chat_id for ${missionId}, skipping verification.`);
+            return true;
         }
+
+        console.log(`[Verify] Checking membership for: ${mission.telegram_chat_id}`);
 
         const { data, error } = await supabase.functions.invoke('verify-telegram-join', {
             body: JSON.stringify({ 
