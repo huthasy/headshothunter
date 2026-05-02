@@ -157,6 +157,16 @@ export const GlobalState = {
       if (playerError && playerError.code === 'PGRST116') {
         // Player chua ton tai -> tao moi
         console.log('[Supabase] New player, creating record...');
+
+        let referredBy = '';
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.start_param) {
+            const sp = window.Telegram.WebApp.initDataUnsafe.start_param;
+            if (sp.startsWith('ref_')) {
+                referredBy = sp.replace('ref_', '');
+                if (referredBy === this.playerId) referredBy = ''; // Khong tu gioi thieu minh
+            }
+        }
+
         const { data: newPlayer, error: insertError } = await supabase
             .from('players')
             .insert({
@@ -167,13 +177,35 @@ export const GlobalState = {
               helmet_level: 0,
               armor_level: 0,
               owned_weapons: ['pistol'],
-              equipped_weapon: 'pistol'
+              equipped_weapon: 'pistol',
+              referred_by: referredBy
             })
             .select()
             .single();
 
         if (insertError) throw insertError;
         playerData = newPlayer;
+
+        // Ghi nhan referral vao database
+        if (referredBy) {
+            try {
+                // Them vao bang referrals
+                await supabase.from('referrals').insert({
+                    referrer_id: referredBy,
+                    referred_id: this.playerId
+                });
+                
+                // Tang bien dem referral_count cho nguoi gioi thieu
+                const { data: refData } = await supabase.from('players').select('referral_count').eq('id', referredBy).single();
+                if (refData) {
+                    await supabase.from('players').update({
+                        referral_count: (refData.referral_count || 0) + 1
+                    }).eq('id', referredBy);
+                }
+            } catch (refErr) {
+                console.error('[Supabase] Referral processing error:', refErr);
+            }
+        }
       } else if (playerError) {
         throw playerError;
       }
