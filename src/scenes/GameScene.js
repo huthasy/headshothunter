@@ -731,6 +731,31 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  showBlinkingText(msg, x, y, color, size, type = 'info') {
+    // Phân hàng thông báo dựa trên loại để không chồng lấp
+    let finalY = y;
+    if (type === 'headshot') finalY -= 40;
+    else if (type === 'hit') finalY -= 10;
+    else if (type === 'hp') finalY += 20;
+
+    const txt = this.add.text(x, finalY, msg, { 
+        fontFamily: 'Arial Black', 
+        fontSize: `${size}px`, 
+        color: color, 
+        stroke: '#000000',
+        strokeThickness: 3
+    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+    
+    this.tweens.add({ 
+        targets: txt, 
+        y: '-=40', 
+        alpha: 0, 
+        duration: 1000, // Cố định 1 giây
+        ease: 'Linear',
+        onComplete: () => txt.destroy() 
+    });
+  }
+
   hit(isHead) {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
@@ -739,48 +764,52 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
+    // Chữ nhỏ (14-18px) cho mobile
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y - 60, '#ff0000', 20, -30);
+        this.showBlinkingText('HEADSHOT!', e.x, e.y - 50, '#ff0000', 18, 'headshot');
     } else {
-        this.showBlinkingText('HIT!', e.x, e.y - 60, '#ffffff', 16, -10);
+        this.showBlinkingText('HIT!', e.x, e.y - 50, '#ffffff', 14, 'hit');
     }
 
     if (e.isBoss && !isDead) {
-        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 60, '#ffcc00', 18, 20);
+        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 50, '#ffcc00', 16, 'hp');
     }
 
-    const knockbackX = direction * 40;
+    // Knockback
+    const knockbackX = direction * 30;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
-        x: `+=${knockbackX}`, y: '-=15', angle: direction * 45, duration: 300, ease: 'Power2',
+        x: `+=${knockbackX}`, angle: direction * 45, duration: 200, ease: 'Power2',
         onStart: () => { 
             if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
         },
         onComplete: () => {
-            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], y: '+=15', angle: 0, duration: 200, ease: 'Bounce.easeOut' });
+            this.tweens.add({ targets: [e.bodySprite, e.headSprite, e.gun], angle: 0, duration: 150 });
         }
     });
 
-    this.time.delayedCall(800, () => {
+    this.time.delayedCall(600, () => {
         if (isDead) {
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else {
-            this.showBossWarning("BOSS RETREATING!");
+            this.showBossWarning("BOSS ESCAPING!");
             
-            // Animation Boss chay len voi hieu ung nghien nguoi
-            const retreatTweens = [];
-            this.currentSteps.forEach((step, idx) => {
-                retreatTweens.push({
-                    targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y,
-                    angle: idx % 2 === 0 ? 10 : -10, // Tilting effect
-                    duration: 60, ease: 'Linear'
-                });
-            });
-
-            this.tweens.chain({
-                tweens: retreatTweens,
+            // Animation Boss CHẠY (Nhảy từng bước)
+            let chain = this.tweens.chain({
+                targets: [e.bodySprite, e.headSprite, e.gun],
+                tweens: this.currentSteps.flatMap((step, idx) => [
+                    {
+                        x: step.x, y: step.y - 20, // Nhảy lên
+                        angle: idx % 2 === 0 ? 15 : -15,
+                        duration: 50, ease: 'Sine.easeOut'
+                    },
+                    {
+                        x: step.x, y: step.y, // Đáp xuống bậc
+                        angle: 0,
+                        duration: 50, ease: 'Sine.easeIn'
+                    }
+                ]),
                 onComplete: () => {
                     e.destroy();
                     this.walkUpStairs(() => {
@@ -806,61 +835,6 @@ export class GameScene extends Phaser.Scene {
                 }
             });
         }
-    });
-  }
-
-  walkUpStairs(onComplete) {
-    this.tweens.chain({
-        targets: this.player,
-        tweens: this.currentSteps.map((step) => ({
-            x: step.x, y: step.y,
-            duration: 100, ease: 'Sine.easeInOut',
-            onUpdate: () => { this.player.setPosition(this.player.x, this.player.y); }
-        })),
-        onComplete: () => { 
-            if (onComplete) onComplete();
-        }
-    });
-  }
-
-  handleMiss() {
-    this.scene.start('GameOverScene');
-  }
-
-  nextFloor() {
-    GlobalState.nextFloor();
-    this.currentY = this.enemyY;
-    this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
-    this.currentFloorSteps = this.nextFloorSteps;
-    this.stairs.forEach(s => { if (s) s.destroy(); });
-    this.stairs = [...this.bgStairs];
-    this.bgStairs = [];
-    this.stairs.forEach(s => s.setTint(0x256A7D).setDepth(0));
-    const targetScrollY = this.currentY - (this.scale.height - 200);
-    this.tweens.add({
-        targets: this.cameras.main,
-        scrollY: targetScrollY, duration: 500, ease: 'Power2',
-        onComplete: () => { this.spawnEnemy(); this.isTransitioning = false; }
-    });
-  }
-
-  showBlinkingText(msg, x, y, color, size, offsetY = 0) {
-    const txt = this.add.text(x, y + offsetY, msg, { 
-        fontFamily: 'Arial', 
-        fontSize: `${size}px`, 
-        color: color, 
-        fontWeight: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
-    
-    this.tweens.add({ 
-        targets: txt, 
-        y: '-=60', 
-        alpha: 0, 
-        duration: 1000, 
-        ease: 'Power1',
-        onComplete: () => txt.destroy() 
     });
   }
 }
