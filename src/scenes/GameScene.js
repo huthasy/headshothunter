@@ -207,7 +207,7 @@ export class GameScene extends Phaser.Scene {
 
     // SECTION: VU KHI
     this.addNeonSection(centerX, y, '▸ WEAPONS ◂', accent);
-    y += 40;
+    y += 25;
 
     const weaponIcons = { sweep2x: '🎯', sweep3x: '🎯', sweep4x: '🎯', shotgun: '💥', laser: '🔴' };
     const weaponList = ['sweep2x','sweep3x','sweep4x','shotgun','laser'];
@@ -222,13 +222,13 @@ export class GameScene extends Phaser.Scene {
                 this.openShop();
             }
         }, accent, owned);
-        y += 75;
+        y += 57;
     });
 
     // SECTION: TRANG BI
-    y += 20;
+    y += 25;
     this.addNeonSection(centerX, y, '▸ ARMOR ◂', accent);
-    y += 40;
+    y += 25;
 
     // Non
     const helmetOwned = GlobalState.helmetOwned;
@@ -240,7 +240,7 @@ export class GameScene extends Phaser.Scene {
             this.openShop();
         }
     }, accent, helmetOwned);
-    y += 75;
+    y += 65;
 
     // Ao giap
     const armorOwned = GlobalState.armorOwned;
@@ -252,18 +252,17 @@ export class GameScene extends Phaser.Scene {
             this.openShop();
         }
     }, accent, armorOwned);
-    y += 75;
 
     // ========== SECTION: BUY GOLD WITH TON ==========
-    y += 35;
+    y += 30;
     this.addNeonSection(centerX, y, '▸ BUY GOLD 💎 ◂', 0xFFD700);
-    y += 50;
+    y += 25;
 
     const packages = GlobalState.goldPackages;
     if (packages && packages.length > 0) {
         packages.forEach(pkg => {
             const itemW = this.scale.width - 80;
-            const itemH = 65;
+            const itemH = 58;
 
             // Card background - gold neon
             const cardBg = this.add.rectangle(centerX, y, itemW, itemH, 0x1a1500, 0.85).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0xFFD700);
@@ -328,7 +327,7 @@ export class GameScene extends Phaser.Scene {
             const items = [cardBg, goldBar, coinIcon, goldLabel, buyBtn];
             if (bonusTag) items.push(bonusTag);
             this.popupGroup.push(...items);
-            y += 80;
+            y += 63;
         });
     } else {
         const noPackages = this.add.text(centerX, y, 'No packages available', {
@@ -346,7 +345,7 @@ export class GameScene extends Phaser.Scene {
 
     // SECTION: EQUIPMENT
     this.addNeonSection(centerX, y, '▸ EQUIPMENT ◂', accent);
-    y += 40;
+    y += 25;
 
     // NON
     const hLvl = GlobalState.helmetLevel;
@@ -362,7 +361,7 @@ export class GameScene extends Phaser.Scene {
             this.openHero();
         }
     }, accent, hMax);
-    y += 75;
+    y += 57;
 
     // AO GIAP
     const aLvl = GlobalState.armorLevel;
@@ -378,21 +377,21 @@ export class GameScene extends Phaser.Scene {
             this.openHero();
         }
     }, accent, aMax);
-    y += 85;
+    y += 65;
 
     // SECTION: WEAPON SELECT
     this.addNeonSection(centerX, y, '▸ WEAPON SELECT ◂', accent);
-    y += 40;
+    y += 25;
 
     // Equipped weapon highlight
     const equipped = GlobalState.weapons[GlobalState.equippedWeapon];
     if (equipped) {
-        const eqBox = this.add.rectangle(centerX, y, this.scale.width - 80, 35, 0x001a20, 0.8).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0x00FF88);
+        const eqBox = this.add.rectangle(centerX, y, this.scale.width - 80, 30, 0x001a20, 0.8).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0x00FF88);
         const eqTxt = this.add.text(centerX, y, `⚡ ACTIVE: ${equipped.name}`, {
             fontSize: '14px', color: '#00FF88', fontFamily: 'Arial'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
         this.popupGroup.push(eqBox, eqTxt);
-        y += 50;
+        y += 35;
     }
 
     // List vu khi da co
@@ -406,7 +405,7 @@ export class GameScene extends Phaser.Scene {
                     this.openHero();
                 }
             }, accent, isEquipped);
-            y += 75;
+            y += 57;
         }
     });
   }
