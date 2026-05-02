@@ -859,7 +859,6 @@ export class GameScene extends Phaser.Scene {
         }
     });
   }
-  }
 
   walkUpStairs(onComplete) {
     if (!this.currentSteps || this.currentSteps.length === 0) {
