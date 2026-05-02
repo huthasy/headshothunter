@@ -254,12 +254,12 @@ export const GlobalState = {
   // =============================================
   _setDefaultWeapons() {
     this.weapons = {
-      pistol: { name: 'Pistol', desc: 'Súng cơ bản', rangeMultiplier: 1, speedMultiplier: 1, bulletCount: 1, spread: 0, type: 'pistol', price: 0, owned: true },
-      sweep2x: { name: 'Sweep x2', desc: 'Tầm ngắm x2', rangeMultiplier: 2, speedMultiplier: 1, bulletCount: 1, spread: 0, type: 'sweep', price: 0, owned: false },
-      sweep3x: { name: 'Sweep x3', desc: 'Tầm ngắm x3', rangeMultiplier: 3, speedMultiplier: 1, bulletCount: 1, spread: 0, type: 'sweep', price: 0, owned: false },
-      sweep4x: { name: 'Sweep x4', desc: 'Tầm ngắm x4', rangeMultiplier: 4, speedMultiplier: 1, bulletCount: 1, spread: 0, type: 'sweep', price: 0, owned: false },
-      shotgun: { name: 'Shotgun', desc: 'Bắn 2 viên rải', rangeMultiplier: 1, speedMultiplier: 1, bulletCount: 2, spread: 3, type: 'shotgun', price: 0, owned: false },
-      laser: { name: 'Laser Gun', desc: 'Chấm đỏ laser', rangeMultiplier: 1, speedMultiplier: 0.25, bulletCount: 1, spread: 0, type: 'laser', price: 0, owned: false },
+      pistol: { name: 'Pistol', desc: 'Basic Gun', rangeMultiplier: 1, speedMultiplier: 1, bulletCount: 1, spread: 0, type: 'pistol', price: 0, owned: true },
+      sweep2x: { name: 'Sweep x1.5', desc: 'Sweep Range x1.5', rangeMultiplier: 1.5, speedMultiplier: 0.5, bulletCount: 1, spread: 0, type: 'sweep', price: 300, owned: false },
+      sweep3x: { name: 'Sweep x2', desc: 'Sweep Range x2', rangeMultiplier: 2, speedMultiplier: 0.5, bulletCount: 1, spread: 0, type: 'sweep', price: 600, owned: false },
+      sweep4x: { name: 'Sweep x3', desc: 'Sweep Range x3', rangeMultiplier: 3, speedMultiplier: 0.5, bulletCount: 1, spread: 0, type: 'sweep', price: 900, owned: false },
+      shotgun: { name: 'Shotgun', desc: 'Fire 2 bullets', rangeMultiplier: 1, speedMultiplier: 0.5, bulletCount: 2, spread: 3, type: 'shotgun', price: 2000, owned: false },
+      laser: { name: 'Laser Gun', desc: 'Red dot laser', rangeMultiplier: 1, speedMultiplier: 0.25, bulletCount: 1, spread: 0, type: 'laser', price: 10000, owned: false },
     };
   },
 
@@ -433,12 +433,28 @@ export const GlobalState = {
   },
 
   async checkTelegramJoin(missionId) {
-    // Luu y: De check thuc su, ban can 1 Backend/Bot API.
-    // Vi du: const res = await fetch(`https://your-bot-api.com/check?user=${this.playerId}&group=${groupId}`);
-    // O day toi tam thoi de delay 1s roi tra ve true de ban test luồng UI.
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(true), 1500);
-    });
+    try {
+        // Lay thong tin nhiem vu tu config de biet Group ID can check
+        const mission = [...this.dailyMissions, ...this.onetimeMissions].find(m => m.id === missionId);
+        if (!mission || !mission.telegram_chat_id) {
+            console.warn("Mission config missing telegram_chat_id");
+            return true; // Cho qua neu ko cau hinh chat id
+        }
+
+        // Goi Supabase Edge Function de check (an toan hon vi Bot Token nằm ở Server)
+        const { data, error } = await supabase.functions.invoke('verify-telegram-join', {
+            body: { 
+                userId: this.playerId, 
+                chatId: mission.telegram_chat_id 
+            }
+        });
+
+        if (error) throw error;
+        return data.isMember; // Tra ve true/false tu bot
+    } catch (err) {
+        console.error("Verification failed:", err);
+        return false;
+    }
   },
 
   async fetchReferrals() {
