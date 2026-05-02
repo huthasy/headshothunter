@@ -594,7 +594,7 @@ export class GameScene extends Phaser.Scene {
     
     // CANH BAO: Chi hien "Enemy hidden" neu SO BAC la 6 hoac 7 VA KHONG phai tang Boss
     if (!isBossFloor && (this.currentFloorSteps === 6 || this.currentFloorSteps === 7)) {
-        this.showBlinkingText("Enemy hidden! Use laser...", 0, 0, '#ffcc00', 14, 'info');
+        this.showBossWarning("Enemy hidden! Using laser gun to detect...");
     }
 
     // So bac thang cho tang TIEP THEO: Neu tang tiep theo la boss thi luon 6-7, neu khong thi random 3-7
@@ -622,9 +622,11 @@ export class GameScene extends Phaser.Scene {
 
     // KIEM TRA KHAC CHE LASER VOI BOSS
     if (this.enemy.isBoss) {
-        this.showBlinkingText("BOSS JAMMING LASER!", 0, 0, '#ff0000', 16, 'info');
-        this.cameras.main.shake(200, 0.005);
-        this.player.laserDisabledByBoss = true;
+        const currentW = GlobalState.weapons[GlobalState.equippedWeapon];
+        if (currentW && currentW.type === 'laser') {
+            this.showBossWarning("WARNING: BOSS JAMMING LASER SIGHT!");
+            this.player.laserDisabledByBoss = true;
+        }
     } else {
         this.player.laserDisabledByBoss = false;
     }
@@ -635,16 +637,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   showBossWarning(msg) {
-    const txt = this.add.text(this.scale.width/2, this.scale.height/2 - 100, msg, {
-        fontSize: '32px', color: '#FF0000', fontWeight: 'bold', stroke: '#000', strokeThickness: 4
+    const txt = this.add.text(this.scale.width/2, this.scale.height/2 - 80, msg, {
+        fontSize: '16px', color: '#FF0000', fontFamily: 'Arial Black', stroke: '#000', strokeThickness: 3
     }).setOrigin(0.5).setDepth(300).setScrollFactor(0);
 
     this.tweens.add({
         targets: txt,
-        alpha: 0.2, duration: 200, yoyo: true, repeat: 10,
-        onComplete: () => {
-            this.tweens.add({ targets: txt, alpha: 0, duration: 500, onComplete: () => txt.destroy() });
-        }
+        y: txt.y - 30,
+        alpha: 0,
+        duration: 1000,
+        ease: 'Linear',
+        onComplete: () => txt.destroy()
     });
   }
 
@@ -798,7 +801,7 @@ export class GameScene extends Phaser.Scene {
             this.walkUpStairs(() => { this.nextFloor(); });
         } else if (e.isBoss) {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
-            this.showBlinkingText("BOSS ESCAPING!", 0, 0, '#ffcc00', 16, 'info');
+            this.showBossWarning("BOSS ESCAPING!");
             
             // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO)
             const jumpTweens = [];
