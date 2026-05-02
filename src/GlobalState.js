@@ -443,15 +443,16 @@ export const GlobalState = {
         }
 
         const { data, error } = await supabase.functions.invoke('verify-telegram-join', {
-            body: { 
+            body: JSON.stringify({ 
                 userId: String(this.playerId), 
                 chatId: String(mission.telegram_chat_id) 
-            }
+            })
         });
 
         if (error) {
-            console.error("[Verify] Edge Function error:", error);
-            throw error;
+            console.error("[Verify] Edge Function error details:", error);
+            // Neu loi CORS, co the do Function bi sap hoac sai URL
+            return false;
         }
         
         console.log(`[Verify] Result for ${missionId}:`, data);
