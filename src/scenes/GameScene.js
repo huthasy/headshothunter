@@ -645,7 +645,7 @@ export class GameScene extends Phaser.Scene {
         targets: txt,
         y: txt.y - 30,
         alpha: 0,
-        duration: 1000,
+        duration: 2000,
         ease: 'Linear',
         onComplete: () => txt.destroy()
     });
@@ -754,7 +754,7 @@ export class GameScene extends Phaser.Scene {
         targets: txt, 
         y: screenY - 30, 
         alpha: 0, 
-        duration: 1000, 
+        duration: 2000, 
         ease: 'Linear',
         onComplete: () => txt.destroy() 
     });
