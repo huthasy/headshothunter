@@ -444,8 +444,8 @@ export const GlobalState = {
 
         const { data, error } = await supabase.functions.invoke('verify-telegram-join', {
             body: { 
-                userId: this.playerId, 
-                chatId: mission.telegram_chat_id 
+                userId: String(this.playerId), 
+                chatId: String(mission.telegram_chat_id) 
             }
         });
 
