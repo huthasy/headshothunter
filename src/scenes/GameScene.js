@@ -176,7 +176,7 @@ export class GameScene extends Phaser.Scene {
 
     // Sub label
     const sub = this.add.text(x - itemW/2 + 42, y + 6, subText, {
-        fontSize: '11px', color: '#667788'
+        fontSize: '11px', color: '#FFE082'
     }).setScrollFactor(0).setDepth(203);
 
     let btn = null;
@@ -517,7 +517,7 @@ export class GameScene extends Phaser.Scene {
 
         // Reward status
         let rewardLabel = '-';
-        let rewardColor = '#667788';
+        let rewardColor = '#FFE082';
         if (reward) {
             rewardLabel = isUnlocked ? `🎁 ${reward.gold}G` : `🔒 ${minRequired}T`;
             rewardColor = isUnlocked ? '#FFD700' : '#FF3366';
@@ -587,14 +587,21 @@ export class GameScene extends Phaser.Scene {
             GlobalState.dailyMissions.forEach(m => {
                 const key = `${m.id}_${todayStr}`;
                 const completed = GlobalState.completedDailyMissions.includes(key);
-                this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : 'GO', async () => {
+                const isVisited = this[`visited_${key}`];
+
+                this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : (isVisited ? 'CLAIM' : 'GO'), async () => {
                     if (!completed) {
-                        if (m.link) window.open(m.link, '_blank');
-                        const res = await GlobalState.completeDailyMission(m.id);
-                        if (res.success) {
-                            this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
-                            this.goldText.setText(`${GlobalState.gold}`);
-                            this.time.delayedCall(1000, () => this.openMissions('missions'));
+                        if (!isVisited) {
+                            if (m.link) window.open(m.link, '_blank');
+                            this[`visited_${key}`] = true;
+                            this.openMissions('missions');
+                        } else {
+                            const res = await GlobalState.completeDailyMission(m.id);
+                            if (res.success) {
+                                this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
+                                this.goldText.setText(`${GlobalState.gold}`);
+                                this.openMissions('missions');
+                            }
                         }
                     }
                 }, 0x00FF88, !completed);
@@ -608,14 +615,21 @@ export class GameScene extends Phaser.Scene {
         if (GlobalState.onetimeMissions && GlobalState.onetimeMissions.length > 0) {
             GlobalState.onetimeMissions.forEach(m => {
                 const completed = GlobalState.completedOnetimeMissions.includes(m.id);
-                this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : 'GO', async () => {
+                const isVisited = this[`visited_onetime_${m.id}`];
+
+                this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : (isVisited ? 'CLAIM' : 'GO'), async () => {
                     if (!completed) {
-                        if (m.link) window.open(m.link, '_blank');
-                        const res = await GlobalState.completeOnetimeMission(m.id);
-                        if (res.success) {
-                            this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
-                            this.goldText.setText(`${GlobalState.gold}`);
-                            this.time.delayedCall(1000, () => this.openMissions('missions'));
+                        if (!isVisited) {
+                            if (m.link) window.open(m.link, '_blank');
+                            this[`visited_onetime_${m.id}`] = true;
+                            this.openMissions('missions');
+                        } else {
+                            const res = await GlobalState.completeOnetimeMission(m.id);
+                            if (res.success) {
+                                this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
+                                this.goldText.setText(`${GlobalState.gold}`);
+                                this.openMissions('missions');
+                            }
                         }
                     }
                 }, 0xFF00FF, !completed);
@@ -640,10 +654,9 @@ export class GameScene extends Phaser.Scene {
         
         copyBtn.on('pointerdown', (p,x,y_evt,e) => {
             e.stopPropagation();
-            navigator.clipboard.writeText(refLink).then(() => {
-                copyBtn.setText('COPIED!');
-                this.time.delayedCall(2000, () => copyBtn.setText('📋 COPY'));
-            });
+            this.copyToClipboard(refLink);
+            copyBtn.setText('COPIED!');
+            this.time.delayedCall(2000, () => copyBtn.setText('📋 COPY'));
         });
         shareBtn.on('pointerdown', (p,x,y_evt,e) => {
             e.stopPropagation();
@@ -694,6 +707,21 @@ export class GameScene extends Phaser.Scene {
              this.popupGroup.push(t);
         }
     }
+  }
+
+  // Helper for copy
+  copyToClipboard(text) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    try {
+        document.execCommand('copy');
+    } catch (err) {
+        console.error('Copy failed', err);
+    }
+    document.body.removeChild(el);
+    this.showBlinkingText("Link Copied!", this.scale.width/2, this.scale.height/2, "#00FFFF", 16);
   }
 
   createManualExplosion(x, y, color = 0xFFD700) {
