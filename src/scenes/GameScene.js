@@ -732,21 +732,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   showBlinkingText(msg, x, y, color, size, type = 'info') {
-    // SỬ DỤNG TỌA ĐỘ Y CỐ ĐỊNH TRÊN MÀN HÌNH ĐỂ TRÁNH CHỒNG LẤP 100%
+    // TỌA ĐỘ Y CỐ ĐỊNH TRÊN MÀN HÌNH ĐỂ TRÁNH CHỒNG LẤP
     const screenCenterX = this.scale.width / 2;
-    let screenY = 150; // Hàng mặc định
+    let screenY = 150; 
     
-    if (type === 'headshot') screenY = 120; // Hàng trên
-    else if (type === 'hit') screenY = 150;     // Hàng giữa
-    else if (type === 'hp') screenY = 180;      // Hàng dưới
+    if (type === 'headshot') screenY = 110; // Hàng 1
+    else if (type === 'hit') screenY = 145;      // Hàng 2
+    else if (type === 'hp') screenY = 180;       // Hàng 3
 
     const txt = this.add.text(screenCenterX, screenY, msg, { 
         fontFamily: 'Arial Black', 
-        fontSize: '16px', // Cố định nhỏ cho mobile
+        fontSize: '16px', 
         color: color, 
         stroke: '#000000',
         strokeThickness: 3
-    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0); // ScrollFactor 0 để cố định trên màn hình
+    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
     
     this.tweens.add({ 
         targets: txt, 
@@ -813,43 +813,63 @@ export class GameScene extends Phaser.Scene {
                 }
             }
 
-            // Animation Boss bay thoát đi (Đơn giản để không đơ)
-            this.tweens.add({
-                targets: [e.bodySprite, e.headSprite, e.gun],
-                x: targetX,
-                y: targetY,
-                alpha: 0,
-                duration: 600,
-                ease: 'Power2',
-                onComplete: () => {
-                    e.destroy();
-                    // Player đuổi theo
-                    this.walkUpStairs(() => {
-                        this.currentY = this.enemyY;
-                        this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
-                        this.currentFloorSteps = this.nextFloorSteps;
-                        
-                        // Dọn cầu thang cũ, đổi cầu thang mới
-                        this.stairs.forEach(s => { if (s) s.destroy(); });
-                        this.stairs = [...this.bgStairs];
-                        this.bgStairs = [];
-                        this.stairs.forEach(s => s.setTint(0x256A7D).setDepth(0));
-                        
-                        // Cuộn màn hình và spawn boss mới
-                        const targetScrollY = this.currentY - (this.scale.height - 200);
-                        this.tweens.add({
-                            targets: this.cameras.main,
-                            scrollY: targetScrollY,
-                            duration: 500,
-                            onComplete: () => { 
-                                this.spawnEnemy(); 
-                                if (this.enemy) this.enemy.hp = e.hp; // Giữ máu
-                                this.isTransitioning = false; 
-                            }
-                        });
+            // LẤY TỌA ĐỘ CẦU THANG TẦNG TIẾP THEO (bgStairs)
+            const nextSteps = this.bgStairs
+                .filter(s => s.type === 'Rectangle') 
+                .map(s => ({ x: s.x, y: s.y }))
+                .sort((a, b) => b.y - a.y); 
+
+            if (nextSteps.length > 0) {
+                // Animation Boss NHẢY TỪNG BƯỚC lên cầu thang mới
+                const runTweens = [];
+                nextSteps.forEach((step, idx) => {
+                    runTweens.push({
+                        targets: [e.bodySprite, e.headSprite, e.gun],
+                        x: step.x, y: step.y - 20, // Nhảy lên
+                        angle: idx % 2 === 0 ? 15 : -15,
+                        duration: 60, ease: 'Sine.easeOut'
                     });
-                }
-            });
+                    runTweens.push({
+                        targets: [e.bodySprite, e.headSprite, e.gun],
+                        x: step.x, y: step.y, // Đáp xuống
+                        angle: 0,
+                        duration: 50, ease: 'Sine.easeIn'
+                    });
+                });
+
+                this.tweens.chain({
+                    tweens: runTweens,
+                    onComplete: () => {
+                        e.destroy();
+                        this.walkUpStairs(() => {
+                            this.currentY = this.enemyY;
+                            this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
+                            this.currentFloorSteps = this.nextFloorSteps;
+                            this.stairs.forEach(s => { if (s) s.destroy(); });
+                            this.stairs = [...this.bgStairs];
+                            this.bgStairs = [];
+                            this.stairs.forEach(s => s.setTint(0x256A7D).setDepth(0));
+                            const targetScrollY = this.currentY - (this.scale.height - 200);
+                            this.tweens.add({
+                                targets: this.cameras.main,
+                                scrollY: targetScrollY, duration: 500,
+                                onComplete: () => { 
+                                    this.spawnEnemy(); 
+                                    if (this.enemy) this.enemy.hp = e.hp;
+                                    this.isTransitioning = false; 
+                                }
+                            });
+                        });
+                    }
+                });
+            } else {
+                // Fallback nếu không thấy cầu thang
+                this.tweens.add({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
+                    y: '-=300', alpha: 0, duration: 500,
+                    onComplete: () => { e.destroy(); this.walkUpStairs(() => { this.nextFloor(); }); }
+                });
+            }
         } else {
             // Trường hợp lính thường chưa chết (không nên xảy ra)
             this.isTransitioning = false;
