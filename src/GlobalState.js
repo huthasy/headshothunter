@@ -65,6 +65,24 @@ export const GlobalState = {
       this.playerId = getPlayerId();
       console.log('[Supabase] Loading data for player:', this.playerId);
 
+      const getStartParam = () => {
+          if (window.Telegram?.WebApp?.initDataUnsafe?.start_param) return window.Telegram.WebApp.initDataUnsafe.start_param;
+          const searchParams = new URLSearchParams(window.location.search);
+          if (searchParams.has('tgWebAppStartParam')) return searchParams.get('tgWebAppStartParam');
+          if (searchParams.has('start_param')) return searchParams.get('start_param');
+          const hashParams = new URLSearchParams(window.location.hash.slice(1));
+          if (hashParams.has('tgWebAppStartParam')) return hashParams.get('tgWebAppStartParam');
+          if (hashParams.has('start_param')) return hashParams.get('start_param');
+          return null;
+      };
+
+      let referredBy = '';
+      const sp = getStartParam();
+      if (sp && sp.startsWith('ref_')) {
+          referredBy = sp.replace('ref_', '');
+          if (referredBy === this.playerId) referredBy = ''; // Khong tu gioi thieu minh
+      }
+
       // 1. Load game config
       const { data: configData, error: configError } = await supabase
           .from('game_config')
@@ -158,15 +176,6 @@ export const GlobalState = {
         // Player chua ton tai -> tao moi
         console.log('[Supabase] New player, creating record...');
 
-        let referredBy = '';
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.start_param) {
-            const sp = window.Telegram.WebApp.initDataUnsafe.start_param;
-            if (sp.startsWith('ref_')) {
-                referredBy = sp.replace('ref_', '');
-                if (referredBy === this.playerId) referredBy = ''; // Khong tu gioi thieu minh
-            }
-        }
-
         const { data: newPlayer, error: insertError } = await supabase
             .from('players')
             .insert({
@@ -211,6 +220,35 @@ export const GlobalState = {
       }
 
       if (playerData) {
+        // Retroactive Referral: Neu player da ton tai nhung chua co nguoi gioi thieu, 
+        // ma ho lai vao tu 1 link ref hop le -> cho phep nhan ref do luon
+        if ((!playerData.referred_by || playerData.referred_by === '') && referredBy) {
+            console.log('[Supabase] Retroactive referral detected:', referredBy);
+            playerData.referred_by = referredBy;
+            try {
+                // Update nguoi choi hien tai
+                await supabase.from('players').update({ referred_by: referredBy }).eq('id', this.playerId);
+                
+                // Them vao bang referrals
+                const { error: refInsertErr } = await supabase.from('referrals').insert({
+                    referrer_id: referredBy,
+                    referred_id: this.playerId
+                });
+                
+                if (!refInsertErr || refInsertErr.code === '23505') { // 23505 = unique_violation
+                    // Tang bien dem referral_count cho nguoi gioi thieu
+                    const { data: refData } = await supabase.from('players').select('referral_count').eq('id', referredBy).single();
+                    if (refData) {
+                        await supabase.from('players').update({
+                            referral_count: (refData.referral_count || 0) + 1
+                        }).eq('id', referredBy);
+                    }
+                }
+            } catch (refErr) {
+                console.error('[Supabase] Retroactive Referral processing error:', refErr);
+            }
+        }
+
         this.gold = playerData.gold || 0;
         this.bestStage = playerData.best_stage || 1;
         this.bestFloor = playerData.best_floor || 1;
