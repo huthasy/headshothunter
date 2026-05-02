@@ -801,23 +801,37 @@ export class GameScene extends Phaser.Scene {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
             this.showBossWarning("BOSS ESCAPING!");
             
-            // Animation Boss CHẠY (Nhảy từng bước qua cầu thang)
+            // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO - bgStairs)
             const jumpTweens = [];
-            // Lấy cầu thang hiện tại để Boss leo lên
-            this.currentSteps.forEach((step, idx) => {
+            
+            // Lấy tọa độ từ các mảnh cầu thang trong bgStairs
+            const nextSteps = this.bgStairs
+                .filter(s => s.width === 30) // Chỉ lấy các bậc thang, không lấy landing to
+                .map(s => ({ x: s.x, y: s.y }))
+                .sort((a, b) => b.y - a.y); // Sắp xếp từ thấp lên cao để leo lên
+
+            if (nextSteps.length > 0) {
+                nextSteps.forEach((step, idx) => {
+                    jumpTweens.push({
+                        targets: [e.bodySprite, e.headSprite, e.gun],
+                        x: step.x, y: step.y - 20,
+                        angle: idx % 2 === 0 ? 15 : -15,
+                        duration: 60, ease: 'Sine.easeOut'
+                    });
+                    jumpTweens.push({
+                        targets: [e.bodySprite, e.headSprite, e.gun],
+                        x: step.x, y: step.y,
+                        angle: 0,
+                        duration: 40, ease: 'Sine.easeIn'
+                    });
+                });
+            } else {
+                // Fallback nếu không tìm thấy bgStairs phù hợp
                 jumpTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y - 20, // Nhảy nhún
-                    angle: idx % 2 === 0 ? 15 : -15,
-                    duration: 60, ease: 'Sine.easeOut'
+                    y: '-=200', x: `+=${direction * 100}`, alpha: 0, duration: 500
                 });
-                jumpTweens.push({
-                    targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y,
-                    angle: 0,
-                    duration: 40, ease: 'Sine.easeIn'
-                });
-            });
+            }
 
             // Sau khi leo xong thì biến mất
             this.tweens.chain({
