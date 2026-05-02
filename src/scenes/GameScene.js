@@ -58,9 +58,9 @@ export class GameScene extends Phaser.Scene {
     this.hhtIcon = this.add.text(120, 20, '🪙', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
     this.hhtText = this.add.text(145, 20, `${GlobalState.hhtCoin}`, { fontSize: '18px', color: '#00FFFF', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
 
-    // TON
-    this.tonIcon = this.add.text(230, 20, '💎', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
-    this.tonText = this.add.text(255, 20, `${GlobalState.totalTonDeposited.toFixed(2)}`, { fontSize: '18px', color: '#0088CC', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
+    // TON (Dưới ô Gold, ngang hàng HP)
+    this.tonIcon = this.add.text(120, 50, '💎', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
+    this.tonText = this.add.text(145, 50, `${GlobalState.totalTonDeposited.toFixed(2)}`, { fontSize: '18px', color: '#0088CC', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
 
     // STAGE & FLOOR
     this.stageText = this.add.text(this.scale.width - 20, 20, `STAGE ${GlobalState.currentStage} - FLOOR ${GlobalState.currentFloor}`, { 
@@ -1141,6 +1141,9 @@ export class GameScene extends Phaser.Scene {
                         this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
                         this.currentFloorSteps = this.nextFloorSteps;
                         
+                        GlobalState.nextFloor();
+                        this.stageText.setText(`STAGE ${GlobalState.currentStage} - FLOOR ${GlobalState.currentFloor}`);
+                        
                         this.stairs.forEach(s => { if (s) s.destroy(); });
                         this.stairs = [...this.bgStairs];
                         this.bgStairs = [];
@@ -1191,6 +1194,7 @@ export class GameScene extends Phaser.Scene {
 
   nextFloor() {
     GlobalState.nextFloor();
+    this.stageText.setText(`STAGE ${GlobalState.currentStage} - FLOOR ${GlobalState.currentFloor}`);
     this.currentY = this.enemyY;
     this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
     this.currentFloorSteps = this.nextFloorSteps;
