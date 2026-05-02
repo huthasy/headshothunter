@@ -564,14 +564,14 @@ export class GameScene extends Phaser.Scene {
     for (let i=0; i<numSteps; i++) {
         currentX += direction * stepWidth/2; currentY -= stepHeight;
         currentBatch.push(this.createPlat(currentX, currentY, stepWidth, color, isBg));
-        if (!isBg) stepCoordinates.push({ x: currentX, y: currentY });
+        stepCoordinates.push({ x: currentX, y: currentY });
         currentX += direction * stepWidth/2;
     }
     const finalELandingCenter = currentX + direction * (landingWidth/2);
     currentBatch.push(this.createPlat(finalELandingCenter, currentY, landingWidth, color, isBg));
     const nextSide = pSide === 'left' ? 'right' : 'left';
     const nextPlayerX = nextSide === 'left' ? this.scale.width * 0.15 : this.scale.width * 0.85;
-    if (!isBg) stepCoordinates.push({ x: nextPlayerX, y: currentY });
+    stepCoordinates.push({ x: nextPlayerX, y: currentY });
     currentBatch.push(this.createPlat(fixedPLandingCenter - direction * 800, startY, 1600, color, isBg));
     currentBatch.push(this.createPlat(finalELandingCenter + direction * 800, currentY, 1600, color, isBg));
     const enemyFinalX = finalELandingCenter - direction * (landingWidth/2 - 20); 
@@ -602,9 +602,10 @@ export class GameScene extends Phaser.Scene {
     this.nextFloorSteps = nextIsBoss ? Phaser.Math.Between(6, 7) : Phaser.Math.Between(3, 7);
 
     const nextSide = this.playerSide === 'left' ? 'right' : 'left';
-    this.generateMountain(eY, nextSide, 0x1B4F5E, true);
+    const bgResult = this.generateMountain(eY, nextSide, 0x1B4F5E, true);
     this.enemyY = eY;
     this.currentSteps = steps;
+    this.nextSteps = bgResult.steps; // Lưu tọa độ cầu thang background cho Boss chạy
 
     const direction = this.playerSide === 'left' ? 1 : -1;
     const offScreenX = direction === 1 ? this.scale.width + 100 : -100;
@@ -801,37 +802,24 @@ export class GameScene extends Phaser.Scene {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
             this.showBossWarning("BOSS ESCAPING!");
             
-            // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO - bgStairs)
+            // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO)
             const jumpTweens = [];
-            
-            // Lấy tọa độ từ các mảnh cầu thang trong bgStairs
-            const nextSteps = this.bgStairs
-                .filter(s => s.width === 30) // Chỉ lấy các bậc thang, không lấy landing to
-                .map(s => ({ x: s.x, y: s.y }))
-                .sort((a, b) => b.y - a.y); // Sắp xếp từ thấp lên cao để leo lên
+            const retreatSteps = this.nextSteps || [];
 
-            if (nextSteps.length > 0) {
-                nextSteps.forEach((step, idx) => {
-                    jumpTweens.push({
-                        targets: [e.bodySprite, e.headSprite, e.gun],
-                        x: step.x, y: step.y - 20,
-                        angle: idx % 2 === 0 ? 15 : -15,
-                        duration: 60, ease: 'Sine.easeOut'
-                    });
-                    jumpTweens.push({
-                        targets: [e.bodySprite, e.headSprite, e.gun],
-                        x: step.x, y: step.y,
-                        angle: 0,
-                        duration: 40, ease: 'Sine.easeIn'
-                    });
-                });
-            } else {
-                // Fallback nếu không tìm thấy bgStairs phù hợp
+            retreatSteps.forEach((step, idx) => {
                 jumpTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    y: '-=200', x: `+=${direction * 100}`, alpha: 0, duration: 500
+                    x: step.x, y: step.y - 20,
+                    angle: idx % 2 === 0 ? 15 : -15,
+                    duration: 80, ease: 'Sine.easeOut'
                 });
-            }
+                jumpTweens.push({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
+                    x: step.x, y: step.y,
+                    angle: 0,
+                    duration: 50, ease: 'Sine.easeIn'
+                });
+            });
 
             // Sau khi leo xong thì biến mất
             this.tweens.chain({
