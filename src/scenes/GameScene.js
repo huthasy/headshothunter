@@ -19,9 +19,10 @@ export class GameScene extends Phaser.Scene {
     
     this.centerX = this.scale.width / 2;
     this.playerSide = 'left';
-    this.currentY = this.scale.height - 200; 
+    this.currentY = this.scale.height - 200;
     this.currentFloorSteps = 5;
     this.nextFloorSteps = Phaser.Math.Between(3, 7);
+    this.isBossChasing = false; // Flag de duy tri boss khi duoi theo
 
     this.playerHP = GlobalState.getMaxHP();
 
@@ -801,6 +802,7 @@ export class GameScene extends Phaser.Scene {
 
   animateHhtCoin(startX, startY, amount) {
     const coinCount = 10;
+    let coinsFinished = 0;
     for (let i = 0; i < coinCount; i++) {
         const coin = this.add.text(startX, startY, '🪙', { fontSize: '20px' }).setDepth(210);
         const angle = Math.random() * Math.PI * 2;
@@ -815,13 +817,14 @@ export class GameScene extends Phaser.Scene {
             onComplete: () => {
                 this.tweens.add({
                     targets: coin,
-                    x: 130, y: 30, // HHT Icon position
+                    x: 145, y: 30, // HHT Text position
                     scale: 0.5,
                     duration: 800,
                     ease: 'Back.easeIn',
                     onComplete: () => {
                         coin.destroy();
-                        if (i === coinCount - 1) {
+                        coinsFinished++;
+                        if (coinsFinished === coinCount) {
                             GlobalState.addHhtCoin(amount);
                             this.hhtText.setText(`${GlobalState.hhtCoin}`);
                             this.tweens.add({ targets: this.hhtText, scale: 1.2, duration: 100, yoyo: true });
@@ -890,7 +893,7 @@ export class GameScene extends Phaser.Scene {
 
   spawnEnemy() {
     const floor = GlobalState.currentFloor;
-    const isBossFloor = (floor % 5 === 0);
+    const isBossFloor = (floor % 5 === 0) || this.isBossChasing; 
 
     const { eX, eY, steps, enemyLandingCenter } = this.generateMountain(this.currentY, this.playerSide, 0x256A7D, false);
     
@@ -1103,12 +1106,16 @@ export class GameScene extends Phaser.Scene {
             // Neu la Boss, roi them HHT Coin
             if (e.isBoss) {
                 this.animateHhtCoin(e.x, e.y - 50, GlobalState.bossHhtReward);
+                this.isBossChasing = false; // Reset khi boss chet
             }
 
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else if (e.isBoss) {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
+            this.isBossChasing = true; 
+            this.showBossWarning("BOSS ESCAPING!");
+            
             // Animation Boss CHẠY
             let currentStepIdx = 0;
             const retreatSteps = this.nextSteps || [];
