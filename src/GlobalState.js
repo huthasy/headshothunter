@@ -30,7 +30,7 @@ export const GlobalState = {
   rankingRewards: [],
   bossConfig: { spawnInterval: 10, baseHhtReward: 50, hhtRewardStep: 10 },
   dailyCheckinConfig: { rewards: [10,20,30,50,80,120,200], reset_after_days: 7 },
-  exchangeConfig: { hhtToTonRate: 1000, withdrawFeePercent: 5 },
+  exchangeConfig: { hhtToTonRate: 1000, withdrawFeePercent: 5, depositOptions: [1, 5, 10] },
   dailyMissions: [],
   onetimeMissions: [],
   referralConfig: { f1_percent:10, f2_percent:5, f3_percent:2, milestones:[], bot_link:'' },
@@ -138,7 +138,8 @@ export const GlobalState = {
               if (row.value) {
                 this.exchangeConfig = {
                   hhtToTonRate: Number(row.value.hht_to_ton_rate) || 1000,
-                  withdrawFeePercent: Number(row.value.withdraw_fee_percent) || 5
+                  withdrawFeePercent: Number(row.value.withdraw_fee_percent) || 5,
+                  depositOptions: Array.isArray(row.value.deposit_options) ? row.value.deposit_options : [1, 5, 10]
                 };
               }
               break;
@@ -523,8 +524,17 @@ export const GlobalState = {
       return { success: true, msg: `Swapped ${hhtAmount} HHT for ${tonReceived.toFixed(2)} TON!`, tonReceived };
   },
 
+  deductTon(tonAmount) {
+      if (this.totalTonDeposited >= tonAmount) {
+          this.totalTonDeposited -= tonAmount;
+          this.saveToSupabase();
+          return true;
+      }
+      return false;
+  },
+
   depositTon(tonAmount) {
-      // TODO: Integrate actual TonConnect transaction here
+      // Called after successful TonConnect transaction
       this.totalTonDeposited += tonAmount;
       this.saveToSupabase();
       return { success: true, msg: `Deposited ${tonAmount} TON successfully!` };

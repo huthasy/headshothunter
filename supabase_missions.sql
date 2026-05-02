@@ -58,7 +58,8 @@ INSERT INTO game_config (key, value) VALUES ('referral_config', '{
 -- Exchange config
 INSERT INTO game_config (key, value) VALUES ('exchange_config', '{
   "hht_to_ton_rate": 1000,
-  "withdraw_fee_percent": 5
+  "withdraw_fee_percent": 5,
+  "deposit_options": [1, 5, 10]
 }') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- Boss config

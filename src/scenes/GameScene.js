@@ -221,8 +221,7 @@ export class GameScene extends Phaser.Scene {
                 }
                 const res = GlobalState.swapHhtToTon(actualAmount);
                 if (res.success) {
-                    this.hhtText.setText(`${GlobalState.hhtCoin}`);
-                    this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
+                    this.updateResourcesDisplay();
                     this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 16);
                     this.openSwap('swap');
                 } else {
@@ -244,7 +243,11 @@ export class GameScene extends Phaser.Scene {
         this.popupGroup.push(currentTon);
         y += 40;
 
-        // Deposit amount buttons (1, 5, 10 TON)
+        const options = GlobalState.exchangeConfig.depositOptions || [1, 5, 10];
+        const numOptions = options.length;
+        const totalW = numOptions * 80;
+        let startX = centerX - totalW/2 + 40;
+
         const addDepositBtn = (amount, px) => {
             const btn = this.add.text(px, y, `+${amount} TON`, {
                 fontSize: '14px', color: '#00BFFF', backgroundColor: '#001a30', padding: { x: 10, y: 5 }, fontFamily: 'Arial Black'
@@ -252,21 +255,37 @@ export class GameScene extends Phaser.Scene {
             
             btn.on('pointerdown', async (p, lx, ly, e) => {
                 e.stopPropagation();
-                // TODO: Actual TonConnect integration
-                const res = GlobalState.depositTon(amount);
-                this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
-                this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 16);
-                this.openSwap('deposit');
+                btn.setText('⏳...');
+                try {
+                    await tonManager.init();
+                    const result = await tonManager.sendTransaction(
+                        GlobalState.tonReceiveAddress,
+                        amount,
+                        `Deposit:${GlobalState.playerId}`
+                    );
+                    if (result.success) {
+                        const res = GlobalState.depositTon(amount);
+                        this.updateResourcesDisplay();
+                        this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 16);
+                        this.openSwap('deposit');
+                    } else {
+                        btn.setText(`+${amount} TON`);
+                        this.showBlinkingText(result.error || 'FAILED', centerX, this.scale.height/2, '#FF3366', 24);
+                    }
+                } catch (err) {
+                    btn.setText(`+${amount} TON`);
+                    console.error('[TON] Deposit error:', err);
+                }
             });
             this.popupGroup.push(btn);
         };
 
-        addDepositBtn(1, centerX - 80);
-        addDepositBtn(5, centerX);
-        addDepositBtn(10, centerX + 80);
+        options.forEach((opt, idx) => {
+            addDepositBtn(opt, startX + idx * 80);
+        });
 
         y += 50;
-        const note = this.add.text(centerX, y, "Note: Deposit simulates adding TON\nto your in-game balance.", { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        const note = this.add.text(centerX, y, "Requires TonConnect. Top-up TON\nto use in Shop and Game.", { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
         this.popupGroup.push(note);
 
     } else if (tab === 'withdraw') {
@@ -522,31 +541,43 @@ export class GameScene extends Phaser.Scene {
             buyBtn.on('pointerdown', async (p, lx, ly, e) => {
                 e.stopPropagation();
                 buyBtn.setText('⏳...');
+
+                const processPurchase = async () => {
+                    GlobalState.gold += pkg.gold;
+                    await GlobalState.saveToSupabase();
+                    this.goldText.setText(`${GlobalState.gold}`);
+                    this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
+                    this.showBlinkingText(`+${pkg.gold} GOLD!`, this.scale.width/2, this.scale.height/2, '#FFD700', 32);
+                    this.openShop();
+                };
+
+                // Truc tiep tru vao so du in-game neu du
+                if (GlobalState.deductTon(pkg.price_ton)) {
+                    await processPurchase();
+                    return;
+                }
+
+                // Neu khong du, tinh so con thieu
+                const missingAmount = pkg.price_ton - GlobalState.totalTonDeposited;
+
                 try {
-                    // Init TON Connect
                     await tonManager.init();
-                    // Send transaction
                     const result = await tonManager.sendTransaction(
                         GlobalState.tonReceiveAddress,
-                        pkg.price_ton,
-                        `BuyGold:${pkg.id}:${GlobalState.playerId}`
+                        missingAmount,
+                        `BuyGoldMissing:${pkg.id}:${GlobalState.playerId}`
                     );
                     if (result.success) {
-                        // Credit gold
-                        GlobalState.gold += pkg.gold;
-                        await GlobalState.saveToSupabase();
-                        await GlobalState.logTonTransaction(pkg.id, pkg.gold, pkg.price_ton, result.boc);
-                        this.goldText.setText(`${GlobalState.gold}`);
-                        
-                        // Cập nhật trạng thái ví ở màn hình chính
-                        this.updateWalletUI();
-
-                        // Success flash
-                        this.showBlinkingText(`+${pkg.gold} GOLD!`, this.scale.width/2, this.scale.height/2, '#FFD700', 32);
-                        this.openShop();
+                        // Ghi nhan so TON nap vao
+                        GlobalState.depositTon(missingAmount);
+                        // Log transaction neu can
+                        await GlobalState.logTonTransaction(pkg.id + '_missing', pkg.gold, missingAmount, result.boc);
+                        // Bay gio chac chan du TON de mua
+                        GlobalState.deductTon(pkg.price_ton);
+                        await processPurchase();
                     } else {
                         buyBtn.setText(`${pkg.price_ton} TON`);
-                        this.updateWalletUI(); // Cập nhật ngay cả khi lỗi (vẫn có thể đã connect thành công)
+                        this.updateWalletUI();
                         this.showBlinkingText(result.error || 'FAILED', this.scale.width/2, this.scale.height/2, '#FF3366', 24);
                     }
                 } catch (err) {
