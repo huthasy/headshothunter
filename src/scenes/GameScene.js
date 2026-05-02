@@ -732,10 +732,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   showBlinkingText(msg, x, y, color, size, type = 'info') {
-    // Phân hàng thông báo dựa trên loại để không chồng lấp
+    // Phân hàng rõ rệt hơn: -60, -20, +20
     let finalY = y;
-    if (type === 'headshot') finalY -= 40;
-    else if (type === 'hit') finalY -= 10;
+    if (type === 'headshot') finalY -= 60; 
+    else if (type === 'hit') finalY -= 20;
     else if (type === 'hp') finalY += 20;
 
     const txt = this.add.text(x, finalY, msg, { 
@@ -748,9 +748,9 @@ export class GameScene extends Phaser.Scene {
     
     this.tweens.add({ 
         targets: txt, 
-        y: '-=40', 
+        y: finalY - 40, 
         alpha: 0, 
-        duration: 1000, // Cố định 1 giây
+        duration: 1000, 
         ease: 'Linear',
         onComplete: () => txt.destroy() 
     });
@@ -764,7 +764,7 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
-    // Chữ nhỏ (14-18px) cho mobile
+    // Mobile Friendly Sizes (14-18px)
     if (isHead) {
         this.showBlinkingText('HEADSHOT!', e.x, e.y - 50, '#ff0000', 18, 'headshot');
     } else {
@@ -788,30 +788,42 @@ export class GameScene extends Phaser.Scene {
         }
     });
 
-    this.time.delayedCall(600, () => {
+    this.time.delayedCall(700, () => {
         if (isDead) {
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else {
             this.showBossWarning("BOSS ESCAPING!");
             
-            // Animation Boss CHẠY (Nhảy từng bước)
-            let chain = this.tweens.chain({
-                targets: [e.bodySprite, e.headSprite, e.gun],
-                tweens: this.currentSteps.flatMap((step, idx) => [
-                    {
-                        x: step.x, y: step.y - 20, // Nhảy lên
-                        angle: idx % 2 === 0 ? 15 : -15,
-                        duration: 50, ease: 'Sine.easeOut'
-                    },
-                    {
-                        x: step.x, y: step.y, // Đáp xuống bậc
-                        angle: 0,
-                        duration: 50, ease: 'Sine.easeIn'
-                    }
-                ]),
+            // LẤY TỌA ĐỘ CẦU THANG TẦNG TIẾP THEO (bgStairs)
+            // Chúng ta cần trích xuất tọa độ từ các mảnh cầu thang trong bgStairs
+            const nextSteps = this.bgStairs
+                .filter(s => s.type === 'Rectangle') // Chỉ lấy các bậc thang, không lấy landing
+                .map(s => ({ x: s.x, y: s.y }))
+                .sort((a, b) => b.y - a.y); // Sắp xếp từ thấp đến cao
+
+            // Animation Boss CHẠY (Nhảy từng bước lên cầu thang TẦNG TRÊN)
+            const jumpTweens = [];
+            nextSteps.forEach((step, idx) => {
+                jumpTweens.push({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
+                    x: step.x, y: step.y - 25, // Nhảy cao hơn chút cho rõ
+                    angle: idx % 2 === 0 ? 20 : -20,
+                    duration: 70, ease: 'Sine.easeOut'
+                });
+                jumpTweens.push({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
+                    x: step.x, y: step.y, // Đáp xuống bậc
+                    angle: 0,
+                    duration: 50, ease: 'Sine.easeIn'
+                });
+            });
+
+            this.tweens.chain({
+                tweens: jumpTweens,
                 onComplete: () => {
                     e.destroy();
+                    // Player đuổi theo
                     this.walkUpStairs(() => {
                         this.currentY = this.enemyY;
                         this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
