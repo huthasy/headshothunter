@@ -27,6 +27,21 @@ export const GlobalState = {
   tonReceiveAddress: '',
   laserBossMultiplier: 3,
   rankingRewards: [],
+  dailyCheckinConfig: { rewards: [10,20,30,50,80,120,200], reset_after_days: 7 },
+  dailyMissions: [],
+  onetimeMissions: [],
+  referralConfig: { f1_percent:10, f2_percent:5, f3_percent:2, milestones:[], bot_link:'' },
+
+  // === PLAYER MISSION STATE ===
+  checkinStreak: 0,
+  lastCheckinDate: '',
+  completedDailyMissions: [],
+  completedOnetimeMissions: [],
+  referralCode: '',
+  referredBy: '',
+  referralCount: 0,
+  claimedMilestones: [],
+  referralList: [],
 
   // === LOADING STATE ===
   isLoaded: false,
@@ -93,6 +108,18 @@ export const GlobalState = {
             case 'ranking_rewards':
               this.rankingRewards = row.value || [];
               break;
+            case 'daily_checkin':
+              this.dailyCheckinConfig = row.value || this.dailyCheckinConfig;
+              break;
+            case 'daily_missions':
+              this.dailyMissions = row.value || [];
+              break;
+            case 'onetime_missions':
+              this.onetimeMissions = row.value || [];
+              break;
+            case 'referral_config':
+              this.referralConfig = row.value || this.referralConfig;
+              break;
           }
         }
       }
@@ -139,6 +166,14 @@ export const GlobalState = {
         this.armorLevel = playerData.armor_level || 0;
         this.ownedWeapons = playerData.owned_weapons || ['pistol'];
         this.equippedWeapon = playerData.equipped_weapon || 'pistol';
+        this.checkinStreak = playerData.checkin_streak || 0;
+        this.lastCheckinDate = playerData.last_checkin_date || '';
+        this.completedDailyMissions = playerData.completed_daily_missions || [];
+        this.completedOnetimeMissions = playerData.completed_onetime_missions || [];
+        this.referralCode = playerData.referral_code || this.playerId;
+        this.referredBy = playerData.referred_by || '';
+        this.referralCount = playerData.referral_count || 0;
+        this.claimedMilestones = playerData.claimed_milestones || [];
 
         // Cap nhat owned state cho weapons
         for (const [id, w] of Object.entries(this.weapons)) {
@@ -349,16 +384,72 @@ export const GlobalState = {
       const { data, error } = await supabase
           .from('players')
           .select('id, daily_best_stage, daily_best_floor, total_ton_deposited')
-          .eq('last_reset_date', todayStr) // Chi lay diem cua ngay hom nay
+          .eq('last_reset_date', todayStr)
           .order('daily_best_stage', { ascending: false })
           .order('daily_best_floor', { ascending: false })
           .limit(limit);
-
       if (error) throw error;
       return data || [];
     } catch (err) {
       console.error('[Supabase] Fetch top players error:', err);
       return [];
     }
+  },
+
+  async dailyCheckin() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (this.lastCheckinDate === todayStr) return { success: false, msg: 'Already checked in' };
+    const cfg = this.dailyCheckinConfig;
+    let streak = this.checkinStreak + 1;
+    if (streak > cfg.reset_after_days) streak = 1;
+    const reward = cfg.rewards[Math.min(streak - 1, cfg.rewards.length - 1)] || 10;
+    this.gold += reward;
+    this.checkinStreak = streak;
+    this.lastCheckinDate = todayStr;
+    await supabase.from('players').update({ gold: this.gold, checkin_streak: streak, last_checkin_date: todayStr }).eq('id', this.playerId);
+    return { success: true, reward, streak };
+  },
+
+  async completeDailyMission(missionId) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const key = `${missionId}_${todayStr}`;
+    if (this.completedDailyMissions.includes(key)) return { success: false };
+    const mission = this.dailyMissions.find(m => m.id === missionId);
+    if (!mission) return { success: false };
+    this.gold += mission.reward;
+    this.completedDailyMissions.push(key);
+    await supabase.from('players').update({ gold: this.gold, completed_daily_missions: this.completedDailyMissions }).eq('id', this.playerId);
+    return { success: true, reward: mission.reward };
+  },
+
+  async completeOnetimeMission(missionId) {
+    if (this.completedOnetimeMissions.includes(missionId)) return { success: false };
+    const mission = this.onetimeMissions.find(m => m.id === missionId);
+    if (!mission) return { success: false };
+    this.gold += mission.reward;
+    this.completedOnetimeMissions.push(missionId);
+    await supabase.from('players').update({ gold: this.gold, completed_onetime_missions: this.completedOnetimeMissions }).eq('id', this.playerId);
+    return { success: true, reward: mission.reward };
+  },
+
+  async fetchReferrals() {
+    try {
+      const { data, error } = await supabase.from('referrals').select('referred_id, created_at').eq('referrer_id', this.playerId).order('created_at', { ascending: false });
+      if (error) throw error;
+      this.referralList = data || [];
+      this.referralCount = this.referralList.length;
+      return this.referralList;
+    } catch (err) { return []; }
+  },
+
+  async claimMilestone(count) {
+    if (this.claimedMilestones.includes(count)) return { success: false };
+    if (this.referralCount < count) return { success: false };
+    const milestone = this.referralConfig.milestones.find(m => m.count === count);
+    if (!milestone) return { success: false };
+    this.gold += milestone.reward;
+    this.claimedMilestones.push(count);
+    await supabase.from('players').update({ gold: this.gold, claimed_milestones: this.claimedMilestones }).eq('id', this.playerId);
+    return { success: true, reward: milestone.reward };
   }
 };

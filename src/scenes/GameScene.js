@@ -52,6 +52,12 @@ export class GameScene extends Phaser.Scene {
     this.goldText = this.add.text(60, 25, `${GlobalState.gold}`, { fontSize: '32px', color: '#FFC107', fontWeight: 'bold' }).setScrollFactor(0).setDepth(100);
     this.hpText = this.add.text(20, 70, `HP: ${this.playerHP}`, { fontSize: '24px', color: '#00FF00' }).setScrollFactor(0).setDepth(100);
 
+    // MISSION ICON - Neon Orange
+    const missionBg = this.add.rectangle(30, this.scale.height - 300, 50, 50, 0x1a0d00, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xFF8800);
+    this.add.text(30, this.scale.height - 300, '📋', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    missionBg.on('pointerdown', (p, x, y, e) => { e.stopPropagation(); this.openMissions(); });
+    this.tweens.add({ targets: missionBg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1, delay: 100 });
+
     // RANKING ICON - Neon Gold
     const rankBg = this.add.rectangle(30, this.scale.height - 240, 50, 50, 0x1a1500, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xFFD700);
     this.add.text(30, this.scale.height - 240, '🏆', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
@@ -529,6 +535,165 @@ export class GameScene extends Phaser.Scene {
         fontSize: '12px', color: '#00FF88', fontFamily: 'Arial'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(myFooter);
+  }
+
+  // ========== MISSIONS & REFERRAL POPUP ==========
+  openMissions(tab = 'missions') {
+    const accent = 0xFF8800;
+    const { startY, centerX } = this.createPopupBase('📋 MISSIONS HUB', accent);
+    let y = startY + 10;
+
+    // Tabs
+    const tabMissions = this.add.text(centerX - 80, y, '🎯 MISSIONS', { 
+        fontSize: '14px', color: tab === 'missions' ? '#FF8800' : '#888888', fontWeight: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+    
+    const tabReferral = this.add.text(centerX + 80, y, '🤝 REFERRAL', { 
+        fontSize: '14px', color: tab === 'referral' ? '#FF8800' : '#888888', fontWeight: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+
+    tabMissions.on('pointerdown', (p,x,y_evt,e) => { e.stopPropagation(); this.openMissions('missions'); });
+    tabReferral.on('pointerdown', (p,x,y_evt,e) => { e.stopPropagation(); this.openMissions('referral'); });
+    this.popupGroup.push(tabMissions, tabReferral);
+
+    y += 30;
+
+    if (tab === 'missions') {
+        // Daily Check-in
+        this.addNeonSection(centerX, y, '▸ DAILY CHECK-IN 📅 ◂', 0x00FFFF);
+        y += 25;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const canCheckin = GlobalState.lastCheckinDate !== todayStr;
+        const streak = GlobalState.checkinStreak;
+        const cfg = GlobalState.dailyCheckinConfig;
+        const nextReward = cfg.rewards ? (cfg.rewards[Math.min(streak, cfg.rewards.length - 1)] || 10) : 10;
+        
+        this.addNeonItem(centerX, y, '🗓️', `Check-in (Streak: ${streak}d)`, `Reward: ${nextReward}G`, canCheckin ? 'CLAIM' : 'DONE', async () => {
+            if (canCheckin) {
+                const res = await GlobalState.dailyCheckin();
+                if (res.success) {
+                    this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
+                    this.goldText.setText(`${GlobalState.gold}`);
+                    this.openMissions('missions');
+                }
+            }
+        }, 0x00FFFF, canCheckin);
+        y += 45;
+
+        // Daily Missions
+        this.addNeonSection(centerX, y, '▸ DAILY MISSIONS ⏳ ◂', 0x00FF88);
+        y += 25;
+        if (GlobalState.dailyMissions && GlobalState.dailyMissions.length > 0) {
+            GlobalState.dailyMissions.forEach(m => {
+                const key = `${m.id}_${todayStr}`;
+                const completed = GlobalState.completedDailyMissions.includes(key);
+                this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : 'GO', async () => {
+                    if (!completed) {
+                        if (m.link) window.open(m.link, '_blank');
+                        const res = await GlobalState.completeDailyMission(m.id);
+                        if (res.success) {
+                            this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
+                            this.goldText.setText(`${GlobalState.gold}`);
+                            this.time.delayedCall(1000, () => this.openMissions('missions'));
+                        }
+                    }
+                }, 0x00FF88, !completed);
+                y += 45;
+            });
+        }
+
+        // Onetime Missions
+        this.addNeonSection(centerX, y, '▸ ONE-TIME MISSIONS 🌟 ◂', 0xFF00FF);
+        y += 25;
+        if (GlobalState.onetimeMissions && GlobalState.onetimeMissions.length > 0) {
+            GlobalState.onetimeMissions.forEach(m => {
+                const completed = GlobalState.completedOnetimeMissions.includes(m.id);
+                this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : 'GO', async () => {
+                    if (!completed) {
+                        if (m.link) window.open(m.link, '_blank');
+                        const res = await GlobalState.completeOnetimeMission(m.id);
+                        if (res.success) {
+                            this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
+                            this.goldText.setText(`${GlobalState.gold}`);
+                            this.time.delayedCall(1000, () => this.openMissions('missions'));
+                        }
+                    }
+                }, 0xFF00FF, !completed);
+                y += 45;
+            });
+        }
+    } else {
+        // Referral Tab
+        const refCfg = GlobalState.referralConfig;
+        const refLink = `${refCfg.bot_link || 'https://t.me/YOUR_BOT?start=ref_'}${GlobalState.playerId}`;
+
+        this.addNeonSection(centerX, y, '▸ YOUR REF LINK 🔗 ◂', 0x00FFFF);
+        y += 20;
+
+        // Copy Link Box
+        const linkBg = this.add.rectangle(centerX, y, 220, 30, 0x002233, 0.8).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0x00FFFF);
+        const displayLink = refLink.length > 28 ? refLink.substring(0, 25) + '...' : refLink;
+        const linkTxt = this.add.text(centerX, y, displayLink, { fontSize: '11px', color: '#FFFFFF' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        
+        const copyBtn = this.add.text(centerX - 40, y + 25, '📋 COPY', { fontSize: '12px', color: '#00FFFF', backgroundColor: '#004466', padding: {x:10,y:5} }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+        const shareBtn = this.add.text(centerX + 40, y + 25, '✈️ SHARE', { fontSize: '12px', color: '#ffffff', backgroundColor: '#0088cc', padding: {x:10,y:5} }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+        
+        copyBtn.on('pointerdown', (p,x,y_evt,e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(refLink).then(() => {
+                copyBtn.setText('COPIED!');
+                this.time.delayedCall(2000, () => copyBtn.setText('📋 COPY'));
+            });
+        });
+        shareBtn.on('pointerdown', (p,x,y_evt,e) => {
+            e.stopPropagation();
+            const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent("Join me in HeadShotHunter!")}`;
+            window.open(shareUrl, '_blank');
+        });
+        this.popupGroup.push(linkBg, linkTxt, copyBtn, shareBtn);
+        y += 50;
+
+        // Commission info
+        const commTxt = `Commissions: F1: ${refCfg.f1_percent}% | F2: ${refCfg.f2_percent}% | F3: ${refCfg.f3_percent}%\nTotal Invited: ${GlobalState.referralCount} friends`;
+        const comm = this.add.text(centerX, y, commTxt, { fontSize: '11px', color: '#00FF88', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(comm);
+        y += 30;
+
+        // Milestones
+        this.addNeonSection(centerX, y, '▸ MILESTONE REWARDS 🏆 ◂', 0xFFD700);
+        y += 25;
+        
+        const milestones = refCfg.milestones || [];
+        let displayedCount = 0;
+        milestones.forEach(ms => {
+            if (displayedCount >= 4) return; // limit rows
+            
+            const claimed = GlobalState.claimedMilestones.includes(ms.count);
+            const canClaim = !claimed && GlobalState.referralCount >= ms.count;
+            if (claimed) return; // skip claimed to show next goals
+
+            let btnTxt = 'LOCKED';
+            if (canClaim) btnTxt = 'CLAIM';
+
+            this.addNeonItem(centerX, y, '👥', `Invite ${ms.count} friends`, `Reward: ${ms.reward}G`, btnTxt, async () => {
+                if (canClaim) {
+                    const res = await GlobalState.claimMilestone(ms.count);
+                    if (res.success) {
+                        this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#FFD700', 16);
+                        this.goldText.setText(`${GlobalState.gold}`);
+                        this.openMissions('referral');
+                    }
+                }
+            }, canClaim ? 0xFFD700 : 0x555555, canClaim);
+            y += 45;
+            displayedCount++;
+        });
+
+        if (displayedCount === 0 && milestones.length > 0) {
+             const t = this.add.text(centerX, y, 'All Milestones Claimed! 🎉', { fontSize: '14px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+             this.popupGroup.push(t);
+        }
+    }
   }
 
   createManualExplosion(x, y, color = 0xFFD700) {
