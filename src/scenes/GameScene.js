@@ -70,6 +70,12 @@ export class GameScene extends Phaser.Scene {
 
     this.hpText = this.add.text(20, 50, `HP: ${this.playerHP}`, { fontSize: '20px', color: '#00FF00', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
 
+    // SWAP ICON - Neon Green
+    const swapBg = this.add.rectangle(30, this.scale.height - 360, 50, 50, 0x002010, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0x00FF00);
+    this.add.text(30, this.scale.height - 360, '💱', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    swapBg.on('pointerdown', (p, x, y, e) => { e.stopPropagation(); this.openSwap('swap'); });
+    this.tweens.add({ targets: swapBg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
     // MISSION ICON - Neon Orange
     const missionBg = this.add.rectangle(30, this.scale.height - 300, 50, 50, 0x1a0d00, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xFF8800);
     this.add.text(30, this.scale.height - 300, '📋', { fontSize: '24px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
@@ -156,6 +162,177 @@ export class GameScene extends Phaser.Scene {
     }
     
     this.isCheckingMissions = false;
+  }
+
+  // ========== SWAP / EXCHANGE POPUP ==========
+  openSwap(tab = 'swap') {
+    const accent = 0x00FF00;
+    const { startY, centerX, w } = this.createPopupBase('💱 EXCHANGE', accent);
+    let y = startY;
+
+    // Tabs
+    const tabY = y;
+    const tabW = w / 3;
+
+    const createTab = (label, id, idx) => {
+        const isActive = tab === id;
+        const color = isActive ? '#00FF00' : '#ffffff';
+        const bg = isActive ? 0x002a10 : 0x0a0a1a;
+        const tabX = centerX - w/2 + tabW/2 + idx * tabW;
+        
+        const tabBg = this.add.rectangle(tabX, tabY, tabW - 4, 30, bg).setScrollFactor(0).setDepth(202).setInteractive({ useHandCursor: true }).setStrokeStyle(1, isActive ? 0x00FF00 : 0x333333);
+        const tabText = this.add.text(tabX, tabY, label, { fontSize: '12px', color: color, fontFamily: 'Arial Black' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        
+        tabBg.on('pointerdown', (p, x, y, e) => { e.stopPropagation(); this.openSwap(id); });
+        this.popupGroup.push(tabBg, tabText);
+    };
+
+    createTab('SWAP', 'swap', 0);
+    createTab('DEPOSIT', 'deposit', 1);
+    createTab('WITHDRAW', 'withdraw', 2);
+
+    y += 40;
+
+    if (tab === 'swap') {
+        this.addNeonSection(centerX, y, '▸ SWAP HHT TO TON ◂', accent);
+        y += 25;
+        
+        const rate = GlobalState.exchangeConfig.hhtToTonRate;
+        const info = this.add.text(centerX, y, `Rate: ${rate} HHT = 1 TON`, { fontSize: '14px', color: '#00FFFF' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(info);
+        y += 30;
+
+        const currentHht = this.add.text(centerX, y, `Your HHT: ${GlobalState.hhtCoin} 🪙`, { fontSize: '16px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(currentHht);
+        y += 40;
+
+        // Simulate swap amount buttons
+        const addBtn = (label, amount, px) => {
+            const btn = this.add.text(px, y, label, {
+                fontSize: '12px', color: '#00FF00', backgroundColor: '#002210', padding: { x: 8, y: 5 }, fontFamily: 'Arial Black'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+            
+            btn.on('pointerdown', (p, lx, ly, e) => {
+                e.stopPropagation();
+                const actualAmount = amount === 'ALL' ? GlobalState.hhtCoin : amount;
+                if (actualAmount <= 0) {
+                    this.showBlinkingText("Not enough HHT!", centerX, this.scale.height/2, '#FF0000', 16);
+                    return;
+                }
+                const res = GlobalState.swapHhtToTon(actualAmount);
+                if (res.success) {
+                    this.hhtText.setText(`${GlobalState.hhtCoin}`);
+                    this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
+                    this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 16);
+                    this.openSwap('swap');
+                } else {
+                    this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#FF0000', 16);
+                }
+            });
+            this.popupGroup.push(btn);
+        };
+        
+        addBtn('Swap 1000', 1000, centerX - 90);
+        addBtn('Swap 5000', 5000, centerX);
+        addBtn('Swap ALL', 'ALL', centerX + 90);
+
+    } else if (tab === 'deposit') {
+        this.addNeonSection(centerX, y, '▸ DEPOSIT TON ◂', 0x00BFFF);
+        y += 25;
+
+        const currentTon = this.add.text(centerX, y, `In-Game Balance: ${GlobalState.totalTonDeposited.toFixed(2)} 💎`, { fontSize: '16px', color: '#00BFFF' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(currentTon);
+        y += 40;
+
+        // Deposit amount buttons (1, 5, 10 TON)
+        const addDepositBtn = (amount, px) => {
+            const btn = this.add.text(px, y, `+${amount} TON`, {
+                fontSize: '14px', color: '#00BFFF', backgroundColor: '#001a30', padding: { x: 10, y: 5 }, fontFamily: 'Arial Black'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+            
+            btn.on('pointerdown', async (p, lx, ly, e) => {
+                e.stopPropagation();
+                // TODO: Actual TonConnect integration
+                const res = GlobalState.depositTon(amount);
+                this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
+                this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 16);
+                this.openSwap('deposit');
+            });
+            this.popupGroup.push(btn);
+        };
+
+        addDepositBtn(1, centerX - 80);
+        addDepositBtn(5, centerX);
+        addDepositBtn(10, centerX + 80);
+
+        y += 50;
+        const note = this.add.text(centerX, y, "Note: Deposit simulates adding TON\nto your in-game balance.", { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(note);
+
+    } else if (tab === 'withdraw') {
+        this.addNeonSection(centerX, y, '▸ WITHDRAW TON ◂', 0xFF3366);
+        y += 25;
+
+        const currentTon = this.add.text(centerX, y, `In-Game Balance: ${GlobalState.totalTonDeposited.toFixed(2)} 💎`, { fontSize: '16px', color: '#00BFFF' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(currentTon);
+        y += 30;
+
+        // Calculate highest milestone
+        let highestMilestone = null;
+        for (const m of GlobalState.referralConfig.milestones) {
+            if (GlobalState.referralCount >= m.count && GlobalState.totalTonDeposited >= (m.required_ton || 0)) {
+                highestMilestone = m;
+            }
+        }
+
+        const limit = highestMilestone ? highestMilestone.daily_withdraw_limit : 0;
+        const availableLimit = Math.max(0, limit - GlobalState.dailyTonWithdrawn);
+
+        const limitInfo = this.add.text(centerX, y, `Daily Limit: ${availableLimit.toFixed(2)} / ${limit.toFixed(2)} TON`, { fontSize: '14px', color: availableLimit > 0 ? '#00FF00' : '#FF0000' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(limitInfo);
+        y += 25;
+
+        const reqInfo = this.add.text(centerX, y, `Unlocked by: ${highestMilestone ? highestMilestone.count + ' F1 & ' + highestMilestone.required_ton + ' TON Dep.' : 'None'}`, { fontSize: '11px', color: '#FFE082' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(reqInfo);
+        y += 25;
+
+        const feeInfo = this.add.text(centerX, y, `Withdraw Fee: ${GlobalState.exchangeConfig.withdrawFeePercent}%`, { fontSize: '12px', color: '#FF3366' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        this.popupGroup.push(feeInfo);
+        y += 40;
+
+        // Withdraw buttons
+        const addWithdrawBtn = (amount, px) => {
+            const btn = this.add.text(px, y, `${amount} TON`, {
+                fontSize: '14px', color: '#FF3366', backgroundColor: '#300010', padding: { x: 10, y: 5 }, fontFamily: 'Arial Black'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setInteractive({ useHandCursor: true });
+            
+            btn.on('pointerdown', (p, lx, ly, e) => {
+                e.stopPropagation();
+                if (amount > availableLimit) {
+                    this.showBlinkingText("Exceeds daily limit!", centerX, this.scale.height/2, '#FF0000', 16);
+                    return;
+                }
+                const res = GlobalState.withdrawTon(amount);
+                if (res.success) {
+                    this.tonText.setText(`${GlobalState.totalTonDeposited.toFixed(2)}`);
+                    this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#00FF00', 14);
+                    this.openSwap('withdraw');
+                } else {
+                    this.showBlinkingText(res.msg, centerX, this.scale.height/2, '#FF0000', 16);
+                }
+            });
+            this.popupGroup.push(btn);
+        };
+
+        if (limit > 0) {
+            addWithdrawBtn(0.1, centerX - 80);
+            addWithdrawBtn(0.5, centerX);
+            addWithdrawBtn(1.0, centerX + 80);
+        } else {
+            const msg = this.add.text(centerX, y, "You need at least 1 F1 and 1 TON deposited\nto unlock withdrawals.", { fontSize: '11px', color: '#666666', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+            this.popupGroup.push(msg);
+        }
+    }
   }
 
   // ========== NEON POPUP BASE ==========

@@ -30,6 +30,7 @@ export const GlobalState = {
   rankingRewards: [],
   bossConfig: { spawnInterval: 10, baseHhtReward: 50, hhtRewardStep: 10 },
   dailyCheckinConfig: { rewards: [10,20,30,50,80,120,200], reset_after_days: 7 },
+  exchangeConfig: { hhtToTonRate: 1000, withdrawFeePercent: 5 },
   dailyMissions: [],
   onetimeMissions: [],
   referralConfig: { f1_percent:10, f2_percent:5, f3_percent:2, milestones:[], bot_link:'' },
@@ -37,6 +38,8 @@ export const GlobalState = {
   // === PLAYER MISSION STATE ===
   checkinStreak: 0,
   lastCheckinDate: '',
+  dailyTonWithdrawn: 0,
+  lastWithdrawDate: '',
   completedDailyMissions: [],
   completedOnetimeMissions: [],
   referralCode: '',
@@ -131,6 +134,14 @@ export const GlobalState = {
             case 'referral_config':
               this.referralConfig = row.value || this.referralConfig;
               break;
+            case 'exchange_config':
+              if (row.value) {
+                this.exchangeConfig = {
+                  hhtToTonRate: Number(row.value.hht_to_ton_rate) || 1000,
+                  withdrawFeePercent: Number(row.value.withdraw_fee_percent) || 5
+                };
+              }
+              break;
           }
         }
       }
@@ -186,6 +197,15 @@ export const GlobalState = {
         this.referredBy = playerData.referred_by || '';
         this.referralCount = playerData.referral_count || 0;
         this.claimedMilestones = playerData.claimed_milestones || [];
+        this.dailyTonWithdrawn = Number(playerData.daily_ton_withdrawn) || 0;
+        this.lastWithdrawDate = playerData.last_withdraw_date || '';
+
+        // Reset daily limit if it's a new day
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (this.lastWithdrawDate !== todayStr) {
+            this.dailyTonWithdrawn = 0;
+            this.lastWithdrawDate = todayStr;
+        }
 
         // Cap nhat owned state cho weapons
         for (const [id, w] of Object.entries(this.weapons)) {
@@ -225,6 +245,9 @@ export const GlobalState = {
         best_stage: Math.max(this.bestStage, this.currentStage),
         best_floor: Math.max(this.bestFloor, this.currentFloor),
         hht_coin: this.hhtCoin,
+        total_ton_deposited: this.totalTonDeposited,
+        daily_ton_withdrawn: this.dailyTonWithdrawn,
+        last_withdraw_date: this.lastWithdrawDate,
         helmet_level: this.helmetLevel,
         armor_level: this.armorLevel,
         owned_weapons: this.ownedWeapons,
@@ -487,6 +510,61 @@ export const GlobalState = {
     // Tinh xem day la con boss thu may (vi du boss tang 10 la con so 1, tang 20 la so 2)
     const bossNumber = Math.max(1, Math.floor(floor / spawnInterval));
     return baseHhtReward + (bossNumber - 1) * hhtRewardStep;
+  },
+
+  swapHhtToTon(hhtAmount) {
+      if (this.hhtCoin < hhtAmount) return { success: false, msg: "Not enough HHT Coin!" };
+      const rate = this.exchangeConfig.hhtToTonRate;
+      const tonReceived = hhtAmount / rate;
+      
+      this.hhtCoin -= hhtAmount;
+      this.totalTonDeposited += tonReceived; // Add to in-game TON balance
+      this.saveToSupabase();
+      return { success: true, msg: `Swapped ${hhtAmount} HHT for ${tonReceived.toFixed(2)} TON!`, tonReceived };
+  },
+
+  depositTon(tonAmount) {
+      // TODO: Integrate actual TonConnect transaction here
+      this.totalTonDeposited += tonAmount;
+      this.saveToSupabase();
+      return { success: true, msg: `Deposited ${tonAmount} TON successfully!` };
+  },
+
+  withdrawTon(tonAmount) {
+      if (this.totalTonDeposited < tonAmount) return { success: false, msg: "Not enough TON balance!" };
+
+      // 1. Find highest unlocked milestone
+      let highestMilestone = null;
+      const milestones = this.referralConfig.milestones || [];
+      for (const m of milestones) {
+          if (this.referralCount >= m.count && this.totalTonDeposited >= (m.required_ton || 0)) {
+              highestMilestone = m;
+          }
+      }
+
+      if (!highestMilestone) {
+          return { success: false, msg: "You haven't reached any withdrawal milestone (requires referrals + deposit)." };
+      }
+
+      // 2. Check daily limits
+      const limit = highestMilestone.daily_withdraw_limit || 0;
+      if (this.dailyTonWithdrawn + tonAmount > limit) {
+          return { success: false, msg: `Daily withdraw limit exceeded! Your current limit is ${limit} TON/day. You have already withdrawn ${this.dailyTonWithdrawn.toFixed(2)} TON today.` };
+      }
+
+      // 3. Process withdrawal (Deduct fee)
+      const feePercent = this.exchangeConfig.withdrawFeePercent;
+      const feeAmount = (tonAmount * feePercent) / 100;
+      const amountAfterFee = tonAmount - feeAmount;
+
+      this.totalTonDeposited -= tonAmount;
+      this.dailyTonWithdrawn += tonAmount;
+      this.lastWithdrawDate = new Date().toISOString().split('T')[0];
+      
+      this.saveToSupabase();
+
+      // TODO: Actual blockchain transfer goes here
+      return { success: true, msg: `Withdrawal of ${amountAfterFee.toFixed(2)} TON initiated (Fee: ${feeAmount.toFixed(2)} TON).` };
   },
 
   async fetchReferrals() {
