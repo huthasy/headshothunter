@@ -1109,33 +1109,14 @@ export class GameScene extends Phaser.Scene {
             this.walkUpStairs(() => { this.nextFloor(); });
         } else if (e.isBoss) {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
-            this.showBossWarning("BOSS ESCAPING!");
-            
-            // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO)
-            const jumpTweens = [];
+            // Animation Boss CHẠY
+            let currentStepIdx = 0;
             const retreatSteps = this.nextSteps || [];
-
-            retreatSteps.forEach((step, idx) => {
-                jumpTweens.push({
-                    targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y - 20,
-                    angle: idx % 2 === 0 ? 15 : -15,
-                    duration: 80, ease: 'Sine.easeOut'
-                });
-                jumpTweens.push({
-                    targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y,
-                    angle: 0,
-                    duration: 50, ease: 'Sine.easeIn'
-                });
-            });
-
-            // Sau khi leo xong thì biến mất
-            this.tweens.chain({
-                tweens: jumpTweens,
-                onComplete: () => {
+            
+            const bossRetreat = () => {
+                if (currentStepIdx >= retreatSteps.length) {
+                    // Leo xong
                     e.destroy();
-                    // Player đuổi theo
                     this.walkUpStairs(() => {
                         this.currentY = this.enemyY;
                         this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
@@ -1155,14 +1136,41 @@ export class GameScene extends Phaser.Scene {
                             scrollY: targetScrollY,
                             duration: 500,
                             onComplete: () => { 
+                                const oldHP = e.hp;
                                 this.spawnEnemy(); 
-                                if (this.enemy) this.enemy.hp = e.hp; 
+                                // Chi ke thua HP neu linh moi cung la Boss
+                                if (this.enemy && this.enemy.isBoss) {
+                                    this.enemy.hp = oldHP;
+                                }
                                 this.isTransitioning = false; 
                             }
                         });
                     });
+                    return;
                 }
-            });
+
+                const step = retreatSteps[currentStepIdx];
+                this.tweens.add({
+                    targets: [e.bodySprite, e.headSprite, e.gun],
+                    x: step.x, y: step.y - 20,
+                    angle: currentStepIdx % 2 === 0 ? 15 : -15,
+                    duration: 80, ease: 'Sine.easeOut',
+                    onComplete: () => {
+                        this.tweens.add({
+                            targets: [e.bodySprite, e.headSprite, e.gun],
+                            x: step.x, y: step.y,
+                            angle: 0,
+                            duration: 50, ease: 'Sine.easeIn',
+                            onComplete: () => {
+                                currentStepIdx++;
+                                bossRetreat();
+                            }
+                        });
+                    }
+                });
+            };
+
+            bossRetreat();
         } else {
             // Trường hợp lính thường chưa chết (không nên xảy ra)
             this.isTransitioning = false;
