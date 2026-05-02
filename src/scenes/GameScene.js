@@ -732,23 +732,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   showBlinkingText(msg, x, y, color, size, type = 'info') {
-    // Phân hàng rõ rệt hơn: -60, -20, +20
-    let finalY = y;
-    if (type === 'headshot') finalY -= 60; 
-    else if (type === 'hit') finalY -= 20;
-    else if (type === 'hp') finalY += 20;
+    // SỬ DỤNG TỌA ĐỘ Y CỐ ĐỊNH TRÊN MÀN HÌNH ĐỂ TRÁNH CHỒNG LẤP 100%
+    const screenCenterX = this.scale.width / 2;
+    let screenY = 150; // Hàng mặc định
+    
+    if (type === 'headshot') screenY = 120; // Hàng trên
+    else if (type === 'hit') screenY = 150;     // Hàng giữa
+    else if (type === 'hp') screenY = 180;      // Hàng dưới
 
-    const txt = this.add.text(x, finalY, msg, { 
+    const txt = this.add.text(screenCenterX, screenY, msg, { 
         fontFamily: 'Arial Black', 
-        fontSize: `${size}px`, 
+        fontSize: '16px', // Cố định nhỏ cho mobile
         color: color, 
         stroke: '#000000',
         strokeThickness: 3
-    }).setOrigin(0.5).setDepth(100).setScrollFactor(0);
+    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0); // ScrollFactor 0 để cố định trên màn hình
     
     this.tweens.add({ 
         targets: txt, 
-        y: finalY - 40, 
+        y: screenY - 30, 
         alpha: 0, 
         duration: 1000, 
         ease: 'Linear',
@@ -764,22 +766,22 @@ export class GameScene extends Phaser.Scene {
     const isDead = e.takeDamage();
     const direction = this.playerSide === 'left' ? 1 : -1;
 
-    // Mobile Friendly Sizes (14-18px)
+    console.log(`[HIT] Boss HP: ${e.hp}, isDead: ${isDead}`);
+
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', e.x, e.y - 50, '#ff0000', 18, 'headshot');
+        this.showBlinkingText('HEADSHOT!', 0, 0, '#ff0000', 18, 'headshot');
     } else {
-        this.showBlinkingText('HIT!', e.x, e.y - 50, '#ffffff', 14, 'hit');
+        this.showBlinkingText('HIT!', 0, 0, '#ffffff', 14, 'hit');
     }
 
     if (e.isBoss && !isDead) {
-        this.showBlinkingText(`HP: ${e.hp}/3`, e.x, e.y - 50, '#ffcc00', 16, 'hp');
+        this.showBlinkingText(`BOSS HP: ${e.hp}/3`, 0, 0, '#ffcc00', 16, 'hp');
     }
 
     // Knockback
-    const knockbackX = direction * 30;
     this.tweens.add({
         targets: [e.bodySprite, e.headSprite, e.gun],
-        x: `+=${knockbackX}`, angle: direction * 45, duration: 200, ease: 'Power2',
+        x: `+=${direction * 30}`, angle: direction * 45, duration: 200, ease: 'Power2',
         onStart: () => { 
             if (isDead) this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
         },
@@ -788,34 +790,43 @@ export class GameScene extends Phaser.Scene {
         }
     });
 
-    this.time.delayedCall(700, () => {
+    this.time.delayedCall(800, () => {
         if (isDead) {
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else {
             this.showBossWarning("BOSS ESCAPING!");
             
-            // LẤY TỌA ĐỘ CẦU THANG TẦNG TIẾP THEO (bgStairs)
-            // Chúng ta cần trích xuất tọa độ từ các mảnh cầu thang trong bgStairs
-            const nextSteps = this.bgStairs
-                .filter(s => s.type === 'Rectangle') // Chỉ lấy các bậc thang, không lấy landing
-                .map(s => ({ x: s.x, y: s.y }))
-                .sort((a, b) => b.y - a.y); // Sắp xếp từ thấp đến cao
+            // LOG ĐỂ KIỂM TRA CẦU THANG
+            console.log("[BOSS] Retreating. bgStairs count:", this.bgStairs.length);
 
-            // Animation Boss CHẠY (Nhảy từng bước lên cầu thang TẦNG TRÊN)
+            // Nếu không có bgStairs, tự tạo tọa độ bay lên
+            let retreatPath = [];
+            if (this.bgStairs.length > 0) {
+                retreatPath = this.bgStairs
+                    .filter(s => s.type === 'Rectangle')
+                    .map(s => ({ x: s.x, y: s.y }))
+                    .sort((a, b) => b.y - a.y);
+            } else {
+                // Tọa độ giả định nếu lỗi logic stairs
+                for(let i=1; i<=5; i++) {
+                    retreatPath.push({ x: e.x + (direction * i * 30), y: e.y - (i * 30) });
+                }
+            }
+
             const jumpTweens = [];
-            nextSteps.forEach((step, idx) => {
+            retreatPath.forEach((step, idx) => {
                 jumpTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y - 25, // Nhảy cao hơn chút cho rõ
+                    x: step.x, y: step.y - 30,
                     angle: idx % 2 === 0 ? 20 : -20,
-                    duration: 70, ease: 'Sine.easeOut'
+                    duration: 100, ease: 'Sine.easeOut'
                 });
                 jumpTweens.push({
                     targets: [e.bodySprite, e.headSprite, e.gun],
-                    x: step.x, y: step.y, // Đáp xuống bậc
+                    x: step.x, y: step.y,
                     angle: 0,
-                    duration: 50, ease: 'Sine.easeIn'
+                    duration: 80, ease: 'Sine.easeIn'
                 });
             });
 
@@ -823,7 +834,6 @@ export class GameScene extends Phaser.Scene {
                 tweens: jumpTweens,
                 onComplete: () => {
                     e.destroy();
-                    // Player đuổi theo
                     this.walkUpStairs(() => {
                         this.currentY = this.enemyY;
                         this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
@@ -848,6 +858,7 @@ export class GameScene extends Phaser.Scene {
             });
         }
     });
+  }
   }
 
   walkUpStairs(onComplete) {
