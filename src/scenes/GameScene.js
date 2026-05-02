@@ -893,7 +893,8 @@ export class GameScene extends Phaser.Scene {
 
   spawnEnemy() {
     const floor = GlobalState.currentFloor;
-    const isBossFloor = (floor % 5 === 0) || this.isBossChasing; 
+    const interval = GlobalState.bossConfig.spawnInterval || 10;
+    const isBossFloor = (floor % interval === 0) || this.isBossChasing; 
 
     const { eX, eY, steps, enemyLandingCenter } = this.generateMountain(this.currentY, this.playerSide, 0x256A7D, false);
     
@@ -903,7 +904,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // So bac thang cho tang TIEP THEO: Neu tang tiep theo la boss thi luon 6-7, neu khong thi random 3-7
-    const nextIsBoss = ((floor + 1) % 5 === 0);
+    const nextIsBoss = ((floor + 1) % interval === 0);
     this.nextFloorSteps = nextIsBoss ? Phaser.Math.Between(6, 7) : Phaser.Math.Between(3, 7);
 
     const nextSide = this.playerSide === 'left' ? 'right' : 'left';
@@ -1105,7 +1106,8 @@ export class GameScene extends Phaser.Scene {
             
             // Neu la Boss, roi them HHT Coin
             if (e.isBoss) {
-                this.animateHhtCoin(e.x, e.y - 50, GlobalState.bossHhtReward);
+                const reward = GlobalState.getBossHhtReward(GlobalState.currentFloor);
+                this.animateHhtCoin(e.x, e.y - 50, reward);
                 this.isBossChasing = false; // Reset khi boss chet
             }
 

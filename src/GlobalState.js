@@ -28,7 +28,7 @@ export const GlobalState = {
   tonReceiveAddress: '',
   laserBossMultiplier: 3,
   rankingRewards: [],
-  bossHhtReward: 50,
+  bossConfig: { spawnInterval: 10, baseHhtReward: 50, hhtRewardStep: 10 },
   dailyCheckinConfig: { rewards: [10,20,30,50,80,120,200], reset_after_days: 7 },
   dailyMissions: [],
   onetimeMissions: [],
@@ -110,8 +110,14 @@ export const GlobalState = {
             case 'ranking_rewards':
               this.rankingRewards = row.value || [];
               break;
-            case 'boss_hht_reward':
-              this.bossHhtReward = Number(row.value) || 50;
+            case 'boss_config':
+              if (row.value) {
+                  this.bossConfig = {
+                      spawnInterval: Number(row.value.spawn_interval) || 10,
+                      baseHhtReward: Number(row.value.base_hht_reward) || 50,
+                      hhtRewardStep: Number(row.value.hht_reward_step) || 10
+                  };
+              }
               break;
             case 'daily_checkin':
               this.dailyCheckinConfig = row.value || this.dailyCheckinConfig;
@@ -474,6 +480,13 @@ export const GlobalState = {
         console.error("[Verify] Failed to check membership:", err);
         return false;
     }
+  },
+
+  getBossHhtReward(floor) {
+    const { spawnInterval, baseHhtReward, hhtRewardStep } = this.bossConfig;
+    // Tinh xem day la con boss thu may (vi du boss tang 10 la con so 1, tang 20 la so 2)
+    const bossNumber = Math.max(1, Math.floor(floor / spawnInterval));
+    return baseHhtReward + (bossNumber - 1) * hhtRewardStep;
   },
 
   async fetchReferrals() {
