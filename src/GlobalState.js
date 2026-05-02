@@ -11,6 +11,7 @@ export const GlobalState = {
   dailyBestFloor: 1,
   dailyBestStage: 1,
   totalTonDeposited: 0,
+  hhtCoin: 0,
   helmetLevel: 0,
   armorLevel: 0,
   ownedWeapons: ['pistol'],
@@ -27,6 +28,7 @@ export const GlobalState = {
   tonReceiveAddress: '',
   laserBossMultiplier: 3,
   rankingRewards: [],
+  bossHhtReward: 50,
   dailyCheckinConfig: { rewards: [10,20,30,50,80,120,200], reset_after_days: 7 },
   dailyMissions: [],
   onetimeMissions: [],
@@ -108,6 +110,9 @@ export const GlobalState = {
             case 'ranking_rewards':
               this.rankingRewards = row.value || [];
               break;
+            case 'boss_hht_reward':
+              this.bossHhtReward = Number(row.value) || 50;
+              break;
             case 'daily_checkin':
               this.dailyCheckinConfig = row.value || this.dailyCheckinConfig;
               break;
@@ -162,6 +167,7 @@ export const GlobalState = {
         this.dailyBestFloor = playerData.daily_best_floor || 1;
         this.dailyBestStage = playerData.daily_best_stage || 1;
         this.totalTonDeposited = Number(playerData.total_ton_deposited) || 0;
+        this.hhtCoin = playerData.hht_coin || 0;
         this.helmetLevel = playerData.helmet_level || 0;
         this.armorLevel = playerData.armor_level || 0;
         this.ownedWeapons = playerData.owned_weapons || ['pistol'];
@@ -212,6 +218,7 @@ export const GlobalState = {
         gold: this.gold,
         best_stage: Math.max(this.bestStage, this.currentStage),
         best_floor: Math.max(this.bestFloor, this.currentFloor),
+        hht_coin: this.hhtCoin,
         helmet_level: this.helmetLevel,
         armor_level: this.armorLevel,
         owned_weapons: this.ownedWeapons,
@@ -281,7 +288,11 @@ export const GlobalState = {
 
   addGold(amount) {
     this.gold += amount;
-    // Auto save moi khi nhan gold
+    this.saveToSupabase();
+  },
+
+  addHhtCoin(amount) {
+    this.hhtCoin += amount;
     this.saveToSupabase();
   },
 

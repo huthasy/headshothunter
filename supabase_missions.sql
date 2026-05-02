@@ -55,7 +55,11 @@ INSERT INTO game_config (key, value) VALUES ('referral_config', '{
   "bot_link": "https://t.me/YOUR_BOT?start=ref_"
 }') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
--- 2. Players table: Add mission columns
+-- Boss HHT reward config
+INSERT INTO game_config (key, value) VALUES ('boss_hht_reward', '50') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
+-- 2. Players table: Add mission and coin columns
+ALTER TABLE players ADD COLUMN IF NOT EXISTS hht_coin INTEGER DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS checkin_streak INTEGER DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_checkin_date TEXT DEFAULT '';
 ALTER TABLE players ADD COLUMN IF NOT EXISTS completed_daily_missions JSONB DEFAULT '[]';

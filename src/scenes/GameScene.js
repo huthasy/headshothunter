@@ -47,10 +47,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   createUI() {
+    // --- Top Resource Bar ---
+    const topBg = this.add.rectangle(this.scale.width/2, 40, this.scale.width - 20, 70, 0x000000, 0.5).setScrollFactor(0).setDepth(90);
+    
     // GOLD
-    this.goldIcon = this.add.rectangle(40, 40, 20, 20, 0xFFD700).setScrollFactor(0).setDepth(100);
-    this.goldText = this.add.text(60, 25, `${GlobalState.gold}`, { fontSize: '32px', color: '#FFC107', fontWeight: 'bold' }).setScrollFactor(0).setDepth(100);
-    this.hpText = this.add.text(20, 70, `HP: ${this.playerHP}`, { fontSize: '24px', color: '#00FF00' }).setScrollFactor(0).setDepth(100);
+    this.goldIcon = this.add.text(20, 20, '💰', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
+    this.goldText = this.add.text(45, 20, `${GlobalState.gold}`, { fontSize: '18px', color: '#FFD700', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
+    
+    // HHT COIN
+    this.hhtIcon = this.add.text(120, 20, '🪙', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
+    this.hhtText = this.add.text(145, 20, `${GlobalState.hhtCoin}`, { fontSize: '18px', color: '#00FFFF', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
+
+    // TON
+    this.tonIcon = this.add.text(230, 20, '💎', { fontSize: '18px' }).setScrollFactor(0).setDepth(100);
+    this.tonText = this.add.text(255, 20, `${GlobalState.totalTonDeposited.toFixed(2)}`, { fontSize: '18px', color: '#0088CC', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
+
+    // STAGE & FLOOR
+    this.stageText = this.add.text(this.scale.width - 20, 20, `STAGE ${GlobalState.currentStage} - FLOOR ${GlobalState.currentFloor}`, { 
+        fontSize: '14px', color: '#FFFFFF', fontFamily: 'Arial Black' 
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+
+    this.hpText = this.add.text(20, 50, `HP: ${this.playerHP}`, { fontSize: '20px', color: '#00FF00', fontFamily: 'Arial Black' }).setScrollFactor(0).setDepth(100);
 
     // MISSION ICON - Neon Orange
     const missionBg = this.add.rectangle(30, this.scale.height - 300, 50, 50, 0x1a0d00, 0.9).setScrollFactor(0).setDepth(100).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xFF8800);
@@ -782,6 +799,40 @@ export class GameScene extends Phaser.Scene {
     this.showBlinkingText("Link Copied!", this.scale.width/2, this.scale.height/2, "#00FFFF", 16);
   }
 
+  animateHhtCoin(startX, startY, amount) {
+    const coinCount = 10;
+    for (let i = 0; i < coinCount; i++) {
+        const coin = this.add.text(startX, startY, '🪙', { fontSize: '20px' }).setDepth(210);
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 50 + 20;
+        
+        this.tweens.add({
+            targets: coin,
+            x: startX + Math.cos(angle) * dist,
+            y: startY + Math.sin(angle) * dist - 30,
+            duration: 400,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: coin,
+                    x: 130, y: 30, // HHT Icon position
+                    scale: 0.5,
+                    duration: 800,
+                    ease: 'Back.easeIn',
+                    onComplete: () => {
+                        coin.destroy();
+                        if (i === coinCount - 1) {
+                            GlobalState.addHhtCoin(amount);
+                            this.hhtText.setText(`${GlobalState.hhtCoin}`);
+                            this.tweens.add({ targets: this.hhtText, scale: 1.2, duration: 100, yoyo: true });
+                        }
+                    }
+                });
+            }
+        });
+    }
+  }
+
   createManualExplosion(x, y, color = 0xFFD700) {
       for (let i = 0; i < 10; i++) {
           const spark = this.add.rectangle(x, y, 4, 4, color).setDepth(60);
@@ -1048,6 +1099,12 @@ export class GameScene extends Phaser.Scene {
         if (isDead) {
             // Địch chết -> Leo tầng
             this.animateGold(e.x, e.y - 30, GlobalState.currentFloor * (isHead ? 2 : 1)); 
+            
+            // Neu la Boss, roi them HHT Coin
+            if (e.isBoss) {
+                this.animateHhtCoin(e.x, e.y - 50, GlobalState.bossHhtReward);
+            }
+
             e.destroy();
             this.walkUpStairs(() => { this.nextFloor(); });
         } else if (e.isBoss) {
