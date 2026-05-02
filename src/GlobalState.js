@@ -432,6 +432,15 @@ export const GlobalState = {
     return { success: true, reward: mission.reward };
   },
 
+  async checkTelegramJoin(missionId) {
+    // Luu y: De check thuc su, ban can 1 Backend/Bot API.
+    // Vi du: const res = await fetch(`https://your-bot-api.com/check?user=${this.playerId}&group=${groupId}`);
+    // O day toi tam thoi de delay 1s roi tra ve true de ban test luồng UI.
+    return new Promise((resolve) => {
+        setTimeout(() => resolve(true), 1500);
+    });
+  },
+
   async fetchReferrals() {
     try {
       const { data, error } = await supabase.from('referrals').select('referred_id, created_at').eq('referrer_id', this.playerId).order('created_at', { ascending: false });

@@ -588,13 +588,26 @@ export class GameScene extends Phaser.Scene {
                 const key = `${m.id}_${todayStr}`;
                 const completed = GlobalState.completedDailyMissions.includes(key);
                 const isVisited = this[`visited_${key}`];
+                const isVerified = this[`verified_${key}`];
 
-                this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : (isVisited ? 'CLAIM' : 'GO'), async () => {
+                let btnLabel = 'GO';
+                if (completed) btnLabel = 'DONE';
+                else if (isVerified) btnLabel = 'CLAIM';
+                else if (isVisited) btnLabel = 'VERIFY';
+
+                this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, btnLabel, async () => {
                     if (!completed) {
                         if (!isVisited) {
                             if (m.link) window.open(m.link, '_blank');
                             this[`visited_${key}`] = true;
                             this.openMissions('missions');
+                        } else if (!isVerified) {
+                            this.showBlinkingText("Verifying...", centerX, y, "#00FFFF", 14);
+                            const success = await GlobalState.checkTelegramJoin(m.id);
+                            if (success) {
+                                this[`verified_${key}`] = true;
+                                this.openMissions('missions');
+                            }
                         } else {
                             const res = await GlobalState.completeDailyMission(m.id);
                             if (res.success) {
@@ -616,13 +629,26 @@ export class GameScene extends Phaser.Scene {
             GlobalState.onetimeMissions.forEach(m => {
                 const completed = GlobalState.completedOnetimeMissions.includes(m.id);
                 const isVisited = this[`visited_onetime_${m.id}`];
+                const isVerified = this[`verified_onetime_${m.id}`];
 
-                this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, completed ? 'DONE' : (isVisited ? 'CLAIM' : 'GO'), async () => {
+                let btnLabel = 'GO';
+                if (completed) btnLabel = 'DONE';
+                else if (isVerified) btnLabel = 'CLAIM';
+                else if (isVisited) btnLabel = 'VERIFY';
+
+                this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, btnLabel, async () => {
                     if (!completed) {
                         if (!isVisited) {
                             if (m.link) window.open(m.link, '_blank');
                             this[`visited_onetime_${m.id}`] = true;
                             this.openMissions('missions');
+                        } else if (!isVerified) {
+                            this.showBlinkingText("Verifying...", centerX, y, "#00FFFF", 14);
+                            const success = await GlobalState.checkTelegramJoin(m.id);
+                            if (success) {
+                                this[`verified_onetime_${m.id}`] = true;
+                                this.openMissions('missions');
+                            }
                         } else {
                             const res = await GlobalState.completeOnetimeMission(m.id);
                             if (res.success) {
