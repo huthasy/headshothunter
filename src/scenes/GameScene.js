@@ -226,7 +226,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // SECTION: TRANG BI
-    y += 25;
+    y += 8;
     this.addNeonSection(centerX, y, '▸ ARMOR ◂', accent);
     y += 25;
 
@@ -240,7 +240,7 @@ export class GameScene extends Phaser.Scene {
             this.openShop();
         }
     }, accent, helmetOwned);
-    y += 65;
+    y += 57;
 
     // Ao giap
     const armorOwned = GlobalState.armorOwned;
@@ -254,7 +254,7 @@ export class GameScene extends Phaser.Scene {
     }, accent, armorOwned);
 
     // ========== SECTION: BUY GOLD WITH TON ==========
-    y += 30;
+    y += 35;
     this.addNeonSection(centerX, y, '▸ BUY GOLD 💎 ◂', 0xFFD700);
     y += 25;
 
