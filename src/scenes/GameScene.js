@@ -108,6 +108,36 @@ export class GameScene extends Phaser.Scene {
     this.popupGroup.forEach(el => { if (el && el.destroy) el.destroy(); });
     this.popupGroup = [];
     this.popupOpen = false;
+    this.isCheckingMissions = false; // Reset trang thai check
+  }
+
+  async autoCheckMissions() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // Check Daily Missions
+    for (const m of GlobalState.dailyMissions) {
+        const key = `${m.id}_${todayStr}`;
+        if (!GlobalState.completedDailyMissions.includes(key) && !this[`verified_${key}`]) {
+            const success = await GlobalState.checkTelegramJoin(m.id);
+            if (success) {
+                this[`verified_${key}`] = true;
+                if (this.popupOpen) this.openMissions('missions'); // Refresh UI neu popup van mo
+            }
+        }
+    }
+
+    // Check One-time Missions
+    for (const m of GlobalState.onetimeMissions) {
+        if (!GlobalState.completedOnetimeMissions.includes(m.id) && !this[`verified_onetime_${m.id}`]) {
+            const success = await GlobalState.checkTelegramJoin(m.id);
+            if (success) {
+                this[`verified_onetime_${m.id}`] = true;
+                if (this.popupOpen) this.openMissions('missions');
+            }
+        }
+    }
+    
+    this.isCheckingMissions = false;
   }
 
   // ========== NEON POPUP BASE ==========
@@ -538,10 +568,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ========== MISSIONS & REFERRAL POPUP ==========
-  openMissions(tab = 'missions') {
+  async openMissions(tab = 'missions') {
     const accent = 0xFF8800;
     const { startY, centerX } = this.createPopupBase('📋 MISSIONS HUB', accent);
     let y = startY + 10;
+
+    // Tự động kiểm tra trạng thái Join Group cho các nhiệm vụ chưa verify khi mở popup
+    if (tab === 'missions' && !this.isCheckingMissions) {
+        this.isCheckingMissions = true;
+        this.autoCheckMissions();
+    }
 
     // Tabs
     const tabMissions = this.add.text(centerX - 80, y, '🎯 MISSIONS', { 

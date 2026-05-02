@@ -434,14 +434,14 @@ export const GlobalState = {
 
   async checkTelegramJoin(missionId) {
     try {
-        // Lay thong tin nhiem vu tu config de biet Group ID can check
         const mission = [...this.dailyMissions, ...this.onetimeMissions].find(m => m.id === missionId);
+        console.log(`[Verify] Checking mission: ${missionId}`, mission);
+        
         if (!mission || !mission.telegram_chat_id) {
-            console.warn("Mission config missing telegram_chat_id");
-            return true; // Cho qua neu ko cau hinh chat id
+            console.warn("[Verify] Missing telegram_chat_id for mission:", missionId);
+            return false;
         }
 
-        // Goi Supabase Edge Function de check (an toan hon vi Bot Token nằm ở Server)
         const { data, error } = await supabase.functions.invoke('verify-telegram-join', {
             body: { 
                 userId: this.playerId, 
@@ -449,10 +449,15 @@ export const GlobalState = {
             }
         });
 
-        if (error) throw error;
-        return data.isMember; // Tra ve true/false tu bot
+        if (error) {
+            console.error("[Verify] Edge Function error:", error);
+            throw error;
+        }
+        
+        console.log(`[Verify] Result for ${missionId}:`, data);
+        return data && data.isMember;
     } catch (err) {
-        console.error("Verification failed:", err);
+        console.error("[Verify] Failed to check membership:", err);
         return false;
     }
   },
