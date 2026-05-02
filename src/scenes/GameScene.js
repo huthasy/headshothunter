@@ -837,4 +837,43 @@ export class GameScene extends Phaser.Scene {
         }
     });
   }
+
+  walkUpStairs(onComplete) {
+    if (!this.currentSteps || this.currentSteps.length === 0) {
+        if (onComplete) onComplete();
+        return;
+    }
+    this.tweens.chain({
+        targets: this.player,
+        tweens: this.currentSteps.map((step) => ({
+            x: step.x, y: step.y,
+            duration: 100, ease: 'Sine.easeInOut',
+            onUpdate: () => { this.player.setPosition(this.player.x, this.player.y); }
+        })),
+        onComplete: () => { 
+            if (onComplete) onComplete();
+        }
+    });
+  }
+
+  handleMiss() {
+    this.scene.start('GameOverScene');
+  }
+
+  nextFloor() {
+    GlobalState.nextFloor();
+    this.currentY = this.enemyY;
+    this.playerSide = this.playerSide === 'left' ? 'right' : 'left';
+    this.currentFloorSteps = this.nextFloorSteps;
+    this.stairs.forEach(s => { if (s) s.destroy(); });
+    this.stairs = [...this.bgStairs];
+    this.bgStairs = [];
+    this.stairs.forEach(s => s.setTint(0x256A7D).setDepth(0));
+    const targetScrollY = this.currentY - (this.scale.height - 200);
+    this.tweens.add({
+        targets: this.cameras.main,
+        scrollY: targetScrollY, duration: 500, ease: 'Power2',
+        onComplete: () => { this.spawnEnemy(); this.isTransitioning = false; }
+    });
+  }
 }
