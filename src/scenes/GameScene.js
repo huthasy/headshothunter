@@ -587,28 +587,26 @@ export class GameScene extends Phaser.Scene {
             GlobalState.dailyMissions.forEach(m => {
                 const key = `${m.id}_${todayStr}`;
                 const completed = GlobalState.completedDailyMissions.includes(key);
-                const isVisited = this[`visited_${key}`];
                 const isVerified = this[`verified_${key}`];
 
-                let btnLabel = 'GO';
+                let btnLabel = isVerified ? 'CLAIM' : 'GO';
                 if (completed) btnLabel = 'DONE';
-                else if (isVerified) btnLabel = 'CLAIM';
-                else if (isVisited) btnLabel = 'VERIFY';
 
                 this.addNeonItem(centerX, y, '✨', m.name, `Reward: ${m.reward}G`, btnLabel, async () => {
                     if (!completed) {
-                        if (!isVisited) {
+                        if (!isVerified) {
+                            // Luon mo link khi bam GO
                             if (m.link) window.open(m.link, '_blank');
-                            this[`visited_${key}`] = true;
-                            this.openMissions('missions');
-                        } else if (!isVerified) {
-                            this.showBlinkingText("Verifying...", centerX, y, "#00FFFF", 14);
+                            
+                            // Check verify ngầm
+                            this.showBlinkingText("Checking...", centerX, y, "#00FFFF", 14);
                             const success = await GlobalState.checkTelegramJoin(m.id);
                             if (success) {
                                 this[`verified_${key}`] = true;
-                                this.openMissions('missions');
+                                this.openMissions('missions'); // Tu dong cap nhat sang nut CLAIM
                             }
                         } else {
+                            // Bam CLAIM
                             const res = await GlobalState.completeDailyMission(m.id);
                             if (res.success) {
                                 this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
@@ -628,28 +626,26 @@ export class GameScene extends Phaser.Scene {
         if (GlobalState.onetimeMissions && GlobalState.onetimeMissions.length > 0) {
             GlobalState.onetimeMissions.forEach(m => {
                 const completed = GlobalState.completedOnetimeMissions.includes(m.id);
-                const isVisited = this[`visited_onetime_${m.id}`];
                 const isVerified = this[`verified_onetime_${m.id}`];
 
-                let btnLabel = 'GO';
+                let btnLabel = isVerified ? 'CLAIM' : 'GO';
                 if (completed) btnLabel = 'DONE';
-                else if (isVerified) btnLabel = 'CLAIM';
-                else if (isVisited) btnLabel = 'VERIFY';
 
                 this.addNeonItem(centerX, y, '🎯', m.name, `Reward: ${m.reward}G`, btnLabel, async () => {
                     if (!completed) {
-                        if (!isVisited) {
+                        if (!isVerified) {
+                            // Mo link
                             if (m.link) window.open(m.link, '_blank');
-                            this[`visited_onetime_${m.id}`] = true;
-                            this.openMissions('missions');
-                        } else if (!isVerified) {
-                            this.showBlinkingText("Verifying...", centerX, y, "#00FFFF", 14);
+                            
+                            // Check verify
+                            this.showBlinkingText("Checking...", centerX, y, "#00FFFF", 14);
                             const success = await GlobalState.checkTelegramJoin(m.id);
                             if (success) {
                                 this[`verified_onetime_${m.id}`] = true;
                                 this.openMissions('missions');
                             }
                         } else {
+                            // Bam CLAIM
                             const res = await GlobalState.completeOnetimeMission(m.id);
                             if (res.success) {
                                 this.showBlinkingText(`+${res.reward} GOLD!`, centerX, y, '#00FF00', 16);
