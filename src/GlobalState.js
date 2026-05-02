@@ -10,6 +10,8 @@ export const GlobalState = {
   bestStage: 1,
   dailyBestFloor: 1,
   dailyBestStage: 1,
+  weeklyBestFloor: 1,
+  weeklyBestStage: 1,
   totalTonDeposited: 0,
   hhtCoin: 0,
   helmetLevel: 0,
@@ -68,9 +70,11 @@ export const GlobalState = {
       const getStartParam = () => {
           if (window.Telegram?.WebApp?.initDataUnsafe?.start_param) return window.Telegram.WebApp.initDataUnsafe.start_param;
           const searchParams = new URLSearchParams(window.location.search);
+          if (searchParams.has('startapp')) return searchParams.get('startapp');
           if (searchParams.has('tgWebAppStartParam')) return searchParams.get('tgWebAppStartParam');
           if (searchParams.has('start_param')) return searchParams.get('start_param');
           const hashParams = new URLSearchParams(window.location.hash.slice(1));
+          if (hashParams.has('startapp')) return hashParams.get('startapp');
           if (hashParams.has('tgWebAppStartParam')) return hashParams.get('tgWebAppStartParam');
           if (hashParams.has('start_param')) return hashParams.get('start_param');
           return null;
@@ -254,6 +258,8 @@ export const GlobalState = {
         this.bestFloor = playerData.best_floor || 1;
         this.dailyBestFloor = playerData.daily_best_floor || 1;
         this.dailyBestStage = playerData.daily_best_stage || 1;
+        this.weeklyBestFloor = playerData.weekly_best_floor || 1;
+        this.weeklyBestStage = playerData.weekly_best_stage || 1;
         this.totalTonDeposited = Number(playerData.total_ton_deposited) || 0;
         this.hhtCoin = playerData.hht_coin || 0;
         this.helmetLevel = playerData.helmet_level || 0;
@@ -315,6 +321,8 @@ export const GlobalState = {
         gold: this.gold,
         best_stage: Math.max(this.bestStage, this.currentStage),
         best_floor: Math.max(this.bestFloor, this.currentFloor),
+        weekly_best_stage: Math.max(this.weeklyBestStage, this.currentStage),
+        weekly_best_floor: Math.max(this.weeklyBestFloor, this.currentFloor),
         hht_coin: this.hhtCoin,
         total_ton_deposited: this.totalTonDeposited,
         daily_ton_withdrawn: this.dailyTonWithdrawn,
@@ -491,13 +499,11 @@ export const GlobalState = {
   // =============================================
   async fetchTopPlayers(limit = 10) {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
           .from('players')
-          .select('id, daily_best_stage, daily_best_floor, total_ton_deposited')
-          .eq('last_reset_date', todayStr)
-          .order('daily_best_stage', { ascending: false })
-          .order('daily_best_floor', { ascending: false })
+          .select('id, weekly_best_stage, weekly_best_floor, total_ton_deposited')
+          .order('weekly_best_stage', { ascending: false })
+          .order('weekly_best_floor', { ascending: false })
           .limit(limit);
       if (error) throw error;
       return data || [];

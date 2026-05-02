@@ -11,6 +11,20 @@ INSERT INTO game_config (key, value) VALUES ('daily_checkin', '{
   "reset_after_days": 7
 }') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
+-- Ranking rewards config
+INSERT INTO game_config (key, value) VALUES ('ranking_rewards', '[
+  {"rank": 1, "type": "ton", "amount": 10},
+  {"rank": 2, "type": "ton", "amount": 5},
+  {"rank": 3, "type": "ton", "amount": 3},
+  {"rank": 4, "type": "hht", "amount": 5000},
+  {"rank": 5, "type": "hht", "amount": 3000},
+  {"rank": 6, "type": "hht", "amount": 2000},
+  {"rank": 7, "type": "gold", "amount": 20000},
+  {"rank": 8, "type": "gold", "amount": 15000},
+  {"rank": 9, "type": "gold", "amount": 10000},
+  {"rank": 10, "type": "gold", "amount": 5000}
+]') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
 -- Daily missions config  
 INSERT INTO game_config (key, value) VALUES ('daily_missions', '[
   {
@@ -81,6 +95,8 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS claimed_milestones JSONB DEFAULT '[]';
 ALTER TABLE players ADD COLUMN IF NOT EXISTS daily_ton_withdrawn NUMERIC DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_withdraw_date TEXT DEFAULT '';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS weekly_best_stage INTEGER DEFAULT 1;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS weekly_best_floor INTEGER DEFAULT 1;
 
 -- 3. Referral tracking table
 CREATE TABLE IF NOT EXISTS referrals (
@@ -90,3 +106,53 @@ CREATE TABLE IF NOT EXISTS referrals (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(referred_id)
 );
+
+-- =============================================
+-- WEEKLY RANKING SYSTEM (CRON JOB)
+-- =============================================
+-- Warning: You must have pg_cron extension enabled in Supabase!
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+CREATE OR REPLACE FUNCTION process_weekly_ranking()
+RETURNS void AS $$
+DECLARE
+    reward record;
+    player record;
+    r_idx integer := 1;
+BEGIN
+    -- Lay ra danh sach top 10 player cua tuan
+    FOR player IN
+        SELECT id, total_ton_deposited FROM players
+        ORDER BY weekly_best_stage DESC, weekly_best_floor DESC, id ASC
+        LIMIT 10
+    LOOP
+        -- Check locked status (chua nap TON)
+        IF player.total_ton_deposited > 0 THEN
+            -- Lay phan thuong tuong ung voi rank r_idx
+            SELECT * INTO reward FROM (
+                SELECT (jsonb_array_elements(value::jsonb)->>'rank')::int as rank,
+                       (jsonb_array_elements(value::jsonb)->>'type') as r_type,
+                       (jsonb_array_elements(value::jsonb)->>'amount')::numeric as amount
+                FROM game_config WHERE key = 'ranking_rewards'
+            ) sub WHERE rank = r_idx LIMIT 1;
+            
+            -- Cong phan thuong neu co
+            IF reward.r_type = 'ton' THEN
+                UPDATE players SET total_ton_deposited = total_ton_deposited + reward.amount WHERE id = player.id;
+            ELSIF reward.r_type = 'hht' THEN
+                UPDATE players SET hht_coin = hht_coin + reward.amount WHERE id = player.id;
+            ELSIF reward.r_type = 'gold' THEN
+                UPDATE players SET gold = gold + reward.amount WHERE id = player.id;
+            END IF;
+        END IF;
+        
+        r_idx := r_idx + 1;
+    END LOOP;
+
+    -- Reset diem tuan
+    UPDATE players SET weekly_best_stage = 1, weekly_best_floor = 1;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Dat lich chay vao 00:00 UTC thu 2 hang tuan
+SELECT cron.schedule('weekly-ranking-reset', '0 0 * * 1', 'SELECT process_weekly_ranking()');

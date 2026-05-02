@@ -9,6 +9,12 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  preload() {
+    // Load audio from public CDN
+    this.load.audio('bgm', 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_73229b19e2.mp3?filename=cyberpunk-2099-10701.mp3');
+    this.load.audio('shoot', 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d0ed848f3.mp3?filename=pistol-shot-230554.mp3');
+  }
+
   create() {
     this.cameras.main.setBackgroundColor('#000000');
     this.platforms = this.physics.add.staticGroup();
@@ -23,6 +29,20 @@ export class GameScene extends Phaser.Scene {
     this.currentFloorSteps = 5;
     this.nextFloorSteps = Phaser.Math.Between(3, 7);
     this.isBossChasing = false; // Flag de duy tri boss khi duoi theo
+
+    // Audio - handle browser audio unlock policies
+    if (!this.registry.get('bgm_playing')) {
+        const playBgm = () => {
+            this.bgm = this.sound.add('bgm', { loop: true, volume: 0.3 });
+            this.bgm.play();
+            this.registry.set('bgm_playing', true);
+        };
+        if (this.sound.locked) {
+            this.sound.once(Phaser.Sound.Events.UNLOCKED, playBgm);
+        } else {
+            playBgm();
+        }
+    }
 
     this.playerHP = GlobalState.getMaxHP();
 
@@ -705,11 +725,11 @@ export class GameScene extends Phaser.Scene {
   // ========== RANKING POPUP (NEON GOLD) ==========
   async openRanking() {
     const accent = 0xFFD700;
-    const { startY, centerX } = this.createPopupBase('🏆 DAILY RANKING', accent);
+    const { startY, centerX } = this.createPopupBase('🏆 WEEKLY RANKING', accent);
     let y = startY;
 
     // Reset info
-    const resetTxt = this.add.text(centerX, y, 'Resets daily at 00:00 UTC', {
+    const resetTxt = this.add.text(centerX, y, 'Resets & rewards paid every Monday 00:00 UTC', {
         fontSize: '11px', color: '#667788'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(resetTxt);
@@ -738,8 +758,8 @@ export class GameScene extends Phaser.Scene {
     const headerBg = this.add.rectangle(centerX, y, this.scale.width - 80, 24, 0x1a1500, 0.6).setScrollFactor(0).setDepth(202).setStrokeStyle(1, 0xFFD700);
     const headerRank = this.add.text(centerX - 120, y, '#', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     const headerName = this.add.text(centerX - 50, y, 'Player', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    const headerScore = this.add.text(centerX + 35, y, 'Daily Score', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-    const headerReward = this.add.text(centerX + 110, y, 'Reward Status', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerScore = this.add.text(centerX + 35, y, 'Best Score', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+    const headerReward = this.add.text(centerX + 110, y, 'Reward', { fontSize: '11px', color: '#FFD700' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(headerBg, headerRank, headerName, headerScore, headerReward);
     y += 22;
 
@@ -750,10 +770,9 @@ export class GameScene extends Phaser.Scene {
         const isMe = player.id === GlobalState.playerId;
         const reward = rewards.find(r => r.rank === rank);
         
-        // Check if reward is unlocked based on total deposit
+        // Check if unlocked: total TON deposited > 0
         const totalDep = isMe ? GlobalState.totalTonDeposited : (Number(player.total_ton_deposited) || 0);
-        const minRequired = reward ? (reward.min_ton || 0) : 0;
-        const isUnlocked = totalDep >= minRequired;
+        const isUnlocked = totalDep > 0;
 
         let rowColor = 0x0d0d20;
         let textColor = '#FFFFFF';
@@ -769,14 +788,24 @@ export class GameScene extends Phaser.Scene {
         const rankTxt = this.add.text(centerX - 120, y, rankIcon, { fontSize: '14px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
         const shortId = player.id ? player.id.substring(0, 6) + '..' : '???';
         const nameTxt = this.add.text(centerX - 50, y, isMe ? '⭐ YOU' : shortId, { fontSize: '12px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
-        const scoreTxt = this.add.text(centerX + 35, y, `S${player.daily_best_stage}-F${player.daily_best_floor}`, { fontSize: '12px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
+        const scoreTxt = this.add.text(centerX + 35, y, `S${player.weekly_best_stage || 1}-F${player.weekly_best_floor || 1}`, { fontSize: '12px', color: textColor }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
 
         // Reward status
         let rewardLabel = '-';
         let rewardColor = '#FFE082';
         if (reward) {
-            rewardLabel = isUnlocked ? `🎁 ${reward.gold}G` : `🔒 ${minRequired}T`;
-            rewardColor = isUnlocked ? '#FFD700' : '#FF3366';
+            let typeLabel = reward.type.toUpperCase();
+            if (reward.type === 'gold') typeLabel = 'G';
+            if (reward.type === 'ton') typeLabel = ' TON';
+            if (reward.type === 'hht') typeLabel = ' HHT';
+            
+            if (isUnlocked) {
+                rewardLabel = `🎁 ${reward.amount}${typeLabel}`;
+                rewardColor = '#FFD700';
+            } else {
+                rewardLabel = `🔒 Locked`;
+                rewardColor = '#FF3366';
+            }
         }
         const rewardTxt = this.add.text(centerX + 110, y, rewardLabel, { fontSize: '11px', color: rewardColor, fontWeight: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
 
@@ -786,9 +815,9 @@ export class GameScene extends Phaser.Scene {
 
     // Your current info footer
     y += 15;
-    const myFooterTxt = `Your Today's Best: S${GlobalState.dailyBestStage}-F${GlobalState.dailyBestFloor} | Deposited: ${GlobalState.totalTonDeposited.toFixed(2)} TON`;
+    const myFooterTxt = `Your Weekly Best: S${GlobalState.weeklyBestStage}-F${GlobalState.weeklyBestFloor} | Deposited: ${GlobalState.totalTonDeposited.toFixed(2)} TON`;
     const myFooter = this.add.text(centerX, y, myFooterTxt, {
-        fontSize: '12px', color: '#00FF88', fontFamily: 'Arial'
+        fontSize: '11px', color: '#00FF88', fontFamily: 'Arial'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
     this.popupGroup.push(myFooter);
   }

@@ -140,6 +140,12 @@ export class Player {
 
   fire() {
     this.isShooting = true;
+    
+    // Play shooting sound
+    if (this.scene.sound.get('shoot')) {
+        this.scene.sound.play('shoot', { volume: 0.5 });
+    }
+
     const angleRad = Phaser.Math.DegToRad(this.gunAngle);
     const weapon = this.getWeapon();
     const bulletCount = weapon.bulletCount || 1;
