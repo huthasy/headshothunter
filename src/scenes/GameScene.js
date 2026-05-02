@@ -594,7 +594,7 @@ export class GameScene extends Phaser.Scene {
     
     // CANH BAO: Chi hien "Enemy hidden" neu SO BAC la 6 hoac 7 VA KHONG phai tang Boss
     if (!isBossFloor && (this.currentFloorSteps === 6 || this.currentFloorSteps === 7)) {
-        this.showBossWarning("Enemy hidden! Using laser gun to detect...");
+        this.showBlinkingText("Enemy hidden! Use laser...", 0, 0, '#ffcc00', 14, 'info');
     }
 
     // So bac thang cho tang TIEP THEO: Neu tang tiep theo la boss thi luon 6-7, neu khong thi random 3-7
@@ -622,11 +622,9 @@ export class GameScene extends Phaser.Scene {
 
     // KIEM TRA KHAC CHE LASER VOI BOSS
     if (this.enemy.isBoss) {
-        const currentW = GlobalState.weapons[GlobalState.equippedWeapon];
-        if (currentW && currentW.type === 'laser') {
-            this.showBossWarning("WARNING: BOSS JAMMING LASER SIGHT!");
-            this.player.laserDisabledByBoss = true;
-        }
+        this.showBlinkingText("BOSS JAMMING LASER!", 0, 0, '#ff0000', 16, 'info');
+        this.cameras.main.shake(200, 0.005);
+        this.player.laserDisabledByBoss = true;
     } else {
         this.player.laserDisabledByBoss = false;
     }
@@ -771,7 +769,7 @@ export class GameScene extends Phaser.Scene {
 
     // Hiển thị thông báo (Cố định vị trí để không đơ)
     if (isHead) {
-        this.showBlinkingText('HEADSHOT!', 0, 0, '#ff0000', 18, 'headshot');
+        this.showBlinkingText('HEADSHOT x2!', 0, 0, '#ff0000', 18, 'headshot');
     } else {
         this.showBlinkingText('HIT!', 0, 0, '#ffffff', 14, 'hit');
     }
@@ -800,7 +798,7 @@ export class GameScene extends Phaser.Scene {
             this.walkUpStairs(() => { this.nextFloor(); });
         } else if (e.isBoss) {
             // Boss chưa chết -> Bỏ chạy lên tầng trên
-            this.showBossWarning("BOSS ESCAPING!");
+            this.showBlinkingText("BOSS ESCAPING!", 0, 0, '#ffcc00', 16, 'info');
             
             // Animation Boss CHẠY (Leo lên cầu thang TẦNG TIẾP THEO)
             const jumpTweens = [];
